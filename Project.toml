@@ -1,0 +1,4 @@
+name = "NustarPointSourceInference"
+uuid = "ca1181a6-db67-11e9-2488-2f88285edc90"
+authors = ["John Heyer <heyer.mit.edu>"]
+version = "0.1.0"
