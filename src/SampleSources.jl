@@ -1,16 +1,14 @@
-module Sampler
+module SampleSources
 
-using TransformVariables, LogDensityProblems, DynamicHMC, DynamicHMC.Diagnostics
 using Distributions, Random, SpecialFunctions
 using Parameters
 using Plots
-
-import ForwardDiff
 
 include("NustarConstants.jl")
 using .NustarConstants
 
 include("TransformPSF.jl")
+include("RJMCMCSampler.jl")
 
 struct NustarModel{T}
     observed_image::T
@@ -29,14 +27,11 @@ function (model::NustarModel)(θ)
     model parameters given the observed image.
 
     Params:
-    - θ (model parameters): Array of 3*n_sources Real numbers, when unpacked
-      is Arrays of [X_i, ..., X_n], [Y_i, ..., Y_n], [B_i, ..., B_n]
+    - θ (model parameters): Array of Tuples of size 3 (source_x, source_y, source_b)
 
     Returns: likelihood
     """
-    @unpack Xs, Ys, Bs = θ
-    model_rate_image = TransformPSF.compose_mean_image(Xs, Ys, Bs)
-    model_rate_image .+= 1
+    model_rate_image = TransformPSF.compose_mean_image(θ)
     likelihood = sum(
         [poisson_log_prob(model_rate_image[i], model.observed_image[i])
             for i in 1:length(model.observed_image)
@@ -53,17 +48,18 @@ n_sources = 3
 
 # Sample points uniformly in square
 x_y_max = PSF_PIXEL_SIZE * PSF_IMAGE_LENGTH/2
+println(x_y_max/PSF_PIXEL_SIZE)
 sources_x = rand(Uniform(-x_y_max, x_y_max), n_sources)
 sources_y = rand(Uniform(-x_y_max, x_y_max), n_sources)
 
-# Sample brightness uniformly TODO: What scale?
-brightness_max = 5000
+# Sample brightness uniformly TODO: What unit/scale?
+brightness_max = 15
 sources_b = rand(Uniform(1, brightness_max), n_sources)
 
-true_mean_image = TransformPSF.compose_mean_image(sources_x, sources_y, sources_b)
-println(maximum(true_mean_image))
+sources_truth = [(sources_x[i], sources_y[i], sources_b[i]) for i in 1:n_sources]
+
+true_mean_image = TransformPSF.compose_mean_image(sources_truth)
 observed_image = TransformPSF.sample_image(true_mean_image, 1)
-println(maximum(observed_image))
 
 # plt_mean = heatmap(true_mean_image)
 # plt_sample = heatmap(observed_image)
@@ -71,24 +67,26 @@ println(maximum(observed_image))
 # display(plt_mean)
 
 model = NustarModel(observed_image)
-θs_truth = (Xs = sources_x, Ys = sources_y, Bs = sources_b)
 
-println("log density of ground truth")
-println(model(θs_truth))  # log density of true parameters
-
-transformation = parameter_transformation(model)
-transformed_model = TransformedLogDensity(transformation, model)
-∇M = ADgradient(:ForwardDiff, transformed_model)
-println("type of grad model")
-println(typeof(∇M))
-results = mcmc_with_warmup(Random.GLOBAL_RNG, ∇M, 100)
-posterior = transform.(transformation, results.chain)
-
-posterior_Xs, posterior_Ys, posterior_Bs = (
-    [params[1] for params in posterior], [params[2] for params in posterior],
-    [params[3] for params in posterior]
-)
-println(size(posterior_Xs))
+# println("log density of ground truth")
+# println(model(sources_truth))  # log density of true parameters
 
 
+
+var_x, var_y = (PSF_PIXEL_SIZE * 1)^2, (PSF_PIXEL_SIZE * 1)^2
+var_b = .25
+covariance = [var_x 0.0 0.0; 0.0 var_y 0.0; 0.0 0.0 var_b]
+init_x = rand(Uniform(-x_y_max, x_y_max), n_sources)
+init_y = rand(Uniform(-x_y_max, x_y_max), n_sources)
+init_b = rand(Uniform(1, brightness_max), n_sources)
+θ_init = [(init_x[i], init_y[i], init_b[i]) for i in 1:n_sources]
+println("SOURCES INIT")
+for source in θ_init
+    println((source[1]/PSF_PIXEL_SIZE, source[2]/PSF_PIXEL_SIZE))
+end
+
+posterior = RJMCMCSampler.nustar_rjmcmc(model, θ_init, 5, 2, covariance, 0)
+
+println("DONE")
+println(length(posterior))
 end  # module
