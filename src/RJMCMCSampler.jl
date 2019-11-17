@@ -1,9 +1,11 @@
 module RJMCMCSampler
 
 using Distributions
+using NPZ
 
 include("NustarConstants.jl")
 using .NustarConstants
+include("TransformPSF.jl")
 
 function jump_proposal(head, up, covariance)
     n_sources = convert(Int, length(head)/3)
@@ -57,20 +59,51 @@ function nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_
     chain = []
     head = θ_init
     accepted = 0
+    ratio_zero = 0
+    ratio_inf = 0
+    ratio_mid = 0
     for i in 1:(burn_in_steps + samples)
+        if (i-1) % 50 == 0
+            println("Iteration: ", i-1)
+        end
         jump = rand(Uniform(0, 1)) < jump_rate
         if jump
-            println("JUMP")
+            # println("JUMP")
             up = rand(Uniform(0, 1)) < .5
             sample_new, proposal_acceptance_ratio = jump_proposal(head, up, covariance)
         else
-            println("PROPOSAL")
+            # println("PROPOSAL")
             sample_new, proposal_acceptance_ratio = proposal(head, covariance)
         end
         d = model(sample_new) - model(head)
         A = exp(d) * proposal_acceptance_ratio
-        println("d: ", d)
-        println("Ratio: ", A)
+        if A == 0
+            ratio_zero += 1
+            # declined_rate_image = TransformPSF.compose_mean_image(sample_new)
+            # previous_rate_image = TransformPSF.compose_mean_image(head)
+            # sampled_image = model.observed_image
+            # npzwrite("zero_ratio.npz", Dict(
+            #     "declined_img" => declined_rate_image,
+            #     "previous_img" => previous_rate_image,
+            #     "sampled_img" => sampled_image
+            #     )
+            # )
+            # print("wrote zero rate to numpy")
+        elseif A == Inf
+            ratio_inf += 1
+            # accepted_rate_image = TransformPSF.compose_mean_image(sample_new)
+            # previous_rate_image = TransformPSF.compose_mean_image(head)
+            # sampled_image = model.observed_image
+            # npzwrite("inf_ratio.npz", Dict(
+            #     "accepted_img" => accepted_rate_image,
+            #     "previous_img" => previous_rate_image,
+            #     "sampled_img" => sampled_image
+            #     )
+            # )
+            # print("wrote inf rate to numpy")
+        else
+            ratio_mid += 1
+        end
         accept = rand(Uniform(0, 1)) < A
         if accept
             head = sample_new
@@ -80,10 +113,12 @@ function nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_
             push!(chain, head)
         end
     end
-    println("Accepted: ")
-    println(accepted)
-    println("percent: ")
-    println(accepted/(burn_in_steps + samples))
+    println("Proposals: ", burn_in_steps + samples)
+    println("Accepted: ", accepted)
+    println("Acceptance rate: ", accepted/(burn_in_steps + samples))
+    println("Infinite A ratio rate: ", ratio_inf/(burn_in_steps + samples))
+    println("Zero A ratio rate: ", ratio_zero/(burn_in_steps + samples))
+    println("Stable A ratio rate: ", ratio_mid/(burn_in_steps + samples))
     return chain
 end
 

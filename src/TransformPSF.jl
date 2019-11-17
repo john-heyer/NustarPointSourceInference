@@ -60,7 +60,7 @@ function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     x_shift = -x/PSF_PIXEL_SIZE
 
     trans = Translation(y_shift, x_shift)
-    println(trans)
+    # println(trans)
 
     # translation translates indices by inv(t), ie what's at index (0, 0)
     # will now be at (1, 1) for a translation of (-1, -1).  The full image is

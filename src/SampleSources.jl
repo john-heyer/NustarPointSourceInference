@@ -3,6 +3,7 @@ module SampleSources
 using Distributions, Random, SpecialFunctions
 using Parameters
 using Plots
+using NPZ
 
 include("NustarConstants.jl")
 using .NustarConstants
@@ -44,7 +45,7 @@ function parameter_transformation(model::NustarModel)
     as((Xs = as(Array, n_sources), Ys = as(Array, n_sources), Bs = as(Array, asℝ₊, n_sources)))
 end
 
-n_sources = 3
+n_sources = 10
 
 # Sample points uniformly in square
 x_y_max = PSF_PIXEL_SIZE * PSF_IMAGE_LENGTH/2
@@ -53,8 +54,8 @@ sources_x = rand(Uniform(-x_y_max, x_y_max), n_sources)
 sources_y = rand(Uniform(-x_y_max, x_y_max), n_sources)
 
 # Sample brightness uniformly TODO: What unit/scale?
-brightness_max = 15
-sources_b = rand(Uniform(1, brightness_max), n_sources)
+brightness_max = 8
+sources_b = rand(Uniform(brightness_max-2, brightness_max), n_sources)
 
 sources_truth = [(sources_x[i], sources_y[i], sources_b[i]) for i in 1:n_sources]
 
@@ -74,19 +75,32 @@ model = NustarModel(observed_image)
 
 
 var_x, var_y = (PSF_PIXEL_SIZE * 1)^2, (PSF_PIXEL_SIZE * 1)^2
-var_b = .25
+var_b = .05^2
+
 covariance = [var_x 0.0 0.0; 0.0 var_y 0.0; 0.0 0.0 var_b]
 init_x = rand(Uniform(-x_y_max, x_y_max), n_sources)
 init_y = rand(Uniform(-x_y_max, x_y_max), n_sources)
-init_b = rand(Uniform(1, brightness_max), n_sources)
+init_b = rand(Uniform(brightness_max-2, brightness_max), n_sources)
 θ_init = [(init_x[i], init_y[i], init_b[i]) for i in 1:n_sources]
 println("SOURCES INIT")
 for source in θ_init
     println((source[1]/PSF_PIXEL_SIZE, source[2]/PSF_PIXEL_SIZE))
 end
 
-posterior = RJMCMCSampler.nustar_rjmcmc(model, θ_init, 5, 2, covariance, 0)
+println("Sampling")
+posterior = RJMCMCSampler.nustar_rjmcmc(model, θ_init, 1000, 100, covariance, 0)
 
-println("DONE")
-println(length(posterior))
+println("Done Sampling")
+
+println("Writing ground truth and posterior to disk")
+ground_truth = [sources_truth[j][i] for i in 1:length(sources_truth[1]), j in 1:length(sources_truth)]
+println(typeof(ground_truth))
+println(size(ground_truth))
+posterior_array = [posterior[x][j][i] for i in 1:length(posterior[1][1]), j in 1:length(posterior[1]), x in 1:length(posterior)]
+println(typeof(posterior_array))
+println(size(posterior_array))
+
+npzwrite("metropolis_data.npz", Dict("gt" => ground_truth, "posterior" => posterior_array))
+println("Done")
+
 end  # module
