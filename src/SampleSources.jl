@@ -4,6 +4,9 @@ using Distributions, Random, SpecialFunctions
 using Parameters
 using Plots
 using NPZ
+using Profile
+using Random
+using Serialization
 
 include("NustarConstants.jl")
 using .NustarConstants
@@ -45,62 +48,60 @@ function parameter_transformation(model::NustarModel)
     as((Xs = as(Array, n_sources), Ys = as(Array, n_sources), Bs = as(Array, asℝ₊, n_sources)))
 end
 
-n_sources = 10
-
-# Sample points uniformly in square
-x_y_max = PSF_PIXEL_SIZE * PSF_IMAGE_LENGTH/2
-println(x_y_max/PSF_PIXEL_SIZE)
-sources_x = rand(Uniform(-x_y_max, x_y_max), n_sources)
-sources_y = rand(Uniform(-x_y_max, x_y_max), n_sources)
-
-# Sample brightness uniformly TODO: What unit/scale?
-brightness_max = 8
-sources_b = rand(Uniform(brightness_max-2, brightness_max), n_sources)
-
-sources_truth = [(sources_x[i], sources_y[i], sources_b[i]) for i in 1:n_sources]
-
-true_mean_image = TransformPSF.compose_mean_image(sources_truth)
-observed_image = TransformPSF.sample_image(true_mean_image, 1)
-
-# plt_mean = heatmap(true_mean_image)
-# plt_sample = heatmap(observed_image)
-#
-# display(plt_mean)
-
-model = NustarModel(observed_image)
-
-# println("log density of ground truth")
-# println(model(sources_truth))  # log density of true parameters
-
-
-
-var_x, var_y = (PSF_PIXEL_SIZE * 1)^2, (PSF_PIXEL_SIZE * 1)^2
-var_b = .05^2
-
-covariance = [var_x 0.0 0.0; 0.0 var_y 0.0; 0.0 0.0 var_b]
-init_x = rand(Uniform(-x_y_max, x_y_max), n_sources)
-init_y = rand(Uniform(-x_y_max, x_y_max), n_sources)
-init_b = rand(Uniform(brightness_max-2, brightness_max), n_sources)
-θ_init = [(init_x[i], init_y[i], init_b[i]) for i in 1:n_sources]
-println("SOURCES INIT")
-for source in θ_init
-    println((source[1]/PSF_PIXEL_SIZE, source[2]/PSF_PIXEL_SIZE))
+function random_sources(x_y_min, x_y_max, lg_b_min, lg_b_max, n_sources)
+    sources_x = rand(Uniform(x_y_min, x_y_max), n_sources)
+    sources_y = rand(Uniform(x_y_min, x_y_max), n_sources)
+    sources_b = rand(Uniform(lg_b_min, lg_b_max), n_sources)
+    return [(sources_x[i], sources_y[i], sources_b[i]) for i in 1:n_sources]
 end
 
-println("Sampling")
-posterior = RJMCMCSampler.nustar_rjmcmc(model, θ_init, 1000, 100, covariance, 0)
+function create_model(sources)
+    mean_image = TransformPSF.compose_mean_image(sources)
+    observed_image = TransformPSF.sample_image(mean_image, 1)
+    return NustarModel(observed_image)
+end
 
-println("Done Sampling")
+function sample_sources_main(
+        n_sources, x_y_min, x_y_max, lg_b_min, lg_b_max,
+        var_x, var_y, var_b, samples, burn_in_steps, jump_rate
+    )
+    sources_truth = random_sources(x_y_min, x_y_max, lg_b_min, lg_b_max, n_sources)
+    model = create_model(sources_truth)
 
-println("Writing ground truth and posterior to disk")
-ground_truth = [sources_truth[j][i] for i in 1:length(sources_truth[1]), j in 1:length(sources_truth)]
-println(typeof(ground_truth))
-println(size(ground_truth))
-posterior_array = [posterior[x][j][i] for i in 1:length(posterior[1][1]), j in 1:length(posterior[1]), x in 1:length(posterior)]
-println(typeof(posterior_array))
-println(size(posterior_array))
+    covariance = [var_x 0.0 0.0; 0.0 var_y 0.0; 0.0 0.0 var_b]
 
-npzwrite("metropolis_data.npz", Dict("gt" => ground_truth, "posterior" => posterior_array))
-println("Done")
+    θ_init = random_sources(x_y_min, x_y_max, lg_b_min, lg_b_max, n_sources)
+
+    println("Sampling")
+    posterior = RJMCMCSampler.nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_rate)
+
+    println("Done Sampling.  Writing ground truth and posterior to disk")
+    ground_truth = [sources_truth[j][i] for i in 1:length(sources_truth[1]), j in 1:length(sources_truth)]
+
+    posterior_array = [
+        posterior[x][j][i]
+            for i in 1:length(posterior[1][1]),
+                j in 1:length(posterior[1]),
+                x in 1:length(posterior)
+    ]
+
+    npzwrite("metropolis_data.npz", Dict("gt" => ground_truth, "posterior" => posterior_array))
+    println("Done")
+end
+
+
+# Set up constants and configurations
+n_sources = 20
+X_Y_MAX = PSF_PIXEL_SIZE * PSF_IMAGE_LENGTH/2
+lg_b_min, lg_b_max = 7, 8  # TODO: Unit/scale for brightness
+var_x, var_y, var_b = (PSF_PIXEL_SIZE * 1)^2, (PSF_PIXEL_SIZE * 1)^2, .05^2
+samples = 5000
+burn_in_steps = 500
+jump_rate = 0
+
+sample_sources_main(
+    n_sources, -X_Y_MAX, X_Y_MAX, lg_b_min, lg_b_max,
+    var_x, var_y, var_b, samples, burn_in_steps, jump_rate
+)
 
 end  # module

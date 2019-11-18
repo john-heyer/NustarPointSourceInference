@@ -13,9 +13,9 @@ using .NustarConstants
 psf = npzread("psf_9.npy")
 
 # Negative values (-0.0)?
-psf = [max(0, i) for i in psf]
+const PSF = [max(0, i) for i in psf]
 
-function anneal(psf, x_loc_pixels, y_loc_pixels)
+function anneal!(psf, x_loc_pixels, y_loc_pixels)
     """Add to pixels by 1/d where d is distance from (x, y)"""
     psf_half_length = PSF_IMAGE_LENGTH/2
     # compute each pixels distance from x, y in pixels. x_loc_pixels, y_loc_pixels
@@ -32,7 +32,7 @@ function anneal(psf, x_loc_pixels, y_loc_pixels)
 end
 
 function psf_by_r(r)
-    return psf
+    return PSF
 end
 
 function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
@@ -69,15 +69,14 @@ function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     psf = warp(psf, trans, indices_spatial(psf), 0.0)
 
     # Add to image according to power law so that image is differentiable everywhere
-    anneal(psf, -x/PSF_PIXEL_SIZE, -y/PSF_PIXEL_SIZE)
+    anneal!(psf, -x/PSF_PIXEL_SIZE, -y/PSF_PIXEL_SIZE)
 
     # Resize by averaging and interpolating
     psf = imresize(psf, new_shape)
     # println(1/sum(psf))
     # Normalize resized image: because we have averaged the pixels in downscaling,
     # we no longer have a true probability distribution, should rescale by (~1300^2/64^2)
-    psf = IM_SCALE * psf
-    return psf * exp(brightness)
+    return psf * IM_SCALE * exp(brightness)
 end
 
 function cartesian_to_polar(x, y)
@@ -125,5 +124,5 @@ end
 # display(plt_0)
 # display(plt_n)
 # display(plt_s)
-println()
+# println()
 end # module

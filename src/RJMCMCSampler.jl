@@ -37,13 +37,7 @@ end
 
 function source_new(source, covariance)
     q = rand(MvNormal(covariance))
-    # println("q: ")
-    # println(q/PSF_PIXEL_SIZE)
-    # println("souce init: ")
-    # println((source[1]/PSF_PIXEL_SIZE, source[2]/PSF_PIXEL_SIZE))
     source_out = (source[1] + q[1], source[2] + q[2], source[3] + q[3])
-        # println("source out: ")
-        # println((source_out[1]/PSF_PIXEL_SIZE, source_out[2]/PSF_PIXEL_SIZE))
     return source_out
 end
 
@@ -75,8 +69,7 @@ function nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_
             # println("PROPOSAL")
             sample_new, proposal_acceptance_ratio = proposal(head, covariance)
         end
-        d = model(sample_new) - model(head)
-        A = exp(d) * proposal_acceptance_ratio
+        A = exp(model(sample_new) - model(head)) * proposal_acceptance_ratio
         if A == 0
             ratio_zero += 1
             # declined_rate_image = TransformPSF.compose_mean_image(sample_new)
@@ -118,7 +111,7 @@ function nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_
     println("Acceptance rate: ", accepted/(burn_in_steps + samples))
     println("Infinite A ratio rate: ", ratio_inf/(burn_in_steps + samples))
     println("Zero A ratio rate: ", ratio_zero/(burn_in_steps + samples))
-    println("Stable A ratio rate: ", ratio_mid/(burn_in_steps + samples))
+    println("Finite A ratio rate: ", ratio_mid/(burn_in_steps + samples))
     return chain
 end
 
