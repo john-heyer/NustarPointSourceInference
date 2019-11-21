@@ -95,11 +95,11 @@ n_sources = 20
 X_Y_MAX = PSF_PIXEL_SIZE * PSF_IMAGE_LENGTH/2
 lg_b_min, lg_b_max = 7, 8  # TODO: Unit/scale for brightness
 var_x, var_y, var_b = (PSF_PIXEL_SIZE * 1)^2, (PSF_PIXEL_SIZE * 1)^2, .05^2
-samples = 5000
-burn_in_steps = 500
+samples = 2500
+burn_in_steps = 250
 jump_rate = 0
 
-sample_sources_main(
+@time sample_sources_main(
     n_sources, -X_Y_MAX, X_Y_MAX, lg_b_min, lg_b_max,
     var_x, var_y, var_b, samples, burn_in_steps, jump_rate
 )

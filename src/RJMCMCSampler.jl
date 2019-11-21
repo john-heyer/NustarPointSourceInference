@@ -113,7 +113,7 @@ function nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_
 
     end
     println("Proposals: ", burn_in_steps + samples)
-    println("Accepted: ", accepted)
+    println("Accepted: ", accepted_before + accepted_after)
     println("Acceptance rate burn in: ", accepted_before/burn_in_steps)
     println("Acceptance rate after burn in: ", accepted_after/samples)
     println("Infinite A ratio rate: ", ratio_inf/(burn_in_steps + samples))
