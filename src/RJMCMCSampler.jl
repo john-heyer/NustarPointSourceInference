@@ -52,7 +52,8 @@ end
 function nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_rate)
     chain = []
     head = θ_init
-    accepted = 0
+    accepted_before = 0
+    accepted_after = 0
     ratio_zero = 0
     ratio_inf = 0
     ratio_mid = 0
@@ -100,15 +101,21 @@ function nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_
         accept = rand(Uniform(0, 1)) < A
         if accept
             head = sample_new
-            accepted += 1
+            if i > burn_in_steps
+                accepted_after += 1
+            else
+                accepted_before += 1
+            end
         end
         if i > burn_in_steps
             push!(chain, head)
         end
+
     end
     println("Proposals: ", burn_in_steps + samples)
     println("Accepted: ", accepted)
-    println("Acceptance rate: ", accepted/(burn_in_steps + samples))
+    println("Acceptance rate burn in: ", accepted_before/burn_in_steps)
+    println("Acceptance rate after burn in: ", accepted_after/samples)
     println("Infinite A ratio rate: ", ratio_inf/(burn_in_steps + samples))
     println("Zero A ratio rate: ", ratio_zero/(burn_in_steps + samples))
     println("Finite A ratio rate: ", ratio_mid/(burn_in_steps + samples))
