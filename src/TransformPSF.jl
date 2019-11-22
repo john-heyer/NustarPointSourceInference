@@ -26,7 +26,7 @@ function anneal!(psf, x_loc_pixels, y_loc_pixels)
                 ((psf_half_length - i) - y_loc_pixels)^2 +
                 ((psf_half_length - j) - x_loc_pixels)^2
             )
-            psf[i, j] += 1e-4/(1+d)
+            psf[i, j] += 1/(1+d)
         end
     end
 end
@@ -44,31 +44,32 @@ function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     Returns:
         64x64 image resulting from applying the psf to this source
     """
-    r, θ = cartesian_to_polar(x, y)
-    psf = psf_by_r(r)
-
-    # first, rotate psf
-    psf = imrotate(psf, θ + pi/2, indices_spatial(psf), 0.0)
-
-    # Note: TRANSLATION
-    # y shift first: negative = shift rows down (row 1 becomes row 2),
-    # which is displayed as shift up in plot because rows flipped
-    # x shift: negative = shift cols right (col 0 becomes col 1),
-    # which is displayed as right shift in plot; i.e., 0,0 in top left
-
-    y_shift = -y/PSF_PIXEL_SIZE
-    x_shift = -x/PSF_PIXEL_SIZE
-
-    trans = Translation(y_shift, x_shift)
-    # println(trans)
-
-    # translation translates indices by inv(t), ie what's at index (0, 0)
-    # will now be at (1, 1) for a translation of (-1, -1).  The full image is
-    # returned, but by passing the indices of the original image as an argument,
-    # you get only the values at those locations (the shifted image)
-    psf = warp(psf, trans, indices_spatial(psf), 0.0)
+    # r, θ = cartesian_to_polar(x, y)
+    # psf = psf_by_r(r)
+    #
+    # # first, rotate psf
+    # psf = imrotate(psf, θ + pi/2, indices_spatial(psf), 0.0)
+    #
+    # # Note: TRANSLATION
+    # # y shift first: negative = shift rows down (row 1 becomes row 2),
+    # # which is displayed as shift up in plot because rows flipped
+    # # x shift: negative = shift cols right (col 0 becomes col 1),
+    # # which is displayed as right shift in plot; i.e., 0,0 in top left
+    #
+    # y_shift = -y/PSF_PIXEL_SIZE
+    # x_shift = -x/PSF_PIXEL_SIZE
+    #
+    # trans = Translation(y_shift, x_shift)
+    # # println(trans)
+    #
+    # # translation translates indices by inv(t), ie what's at index (0, 0)
+    # # will now be at (1, 1) for a translation of (-1, -1).  The full image is
+    # # returned, but by passing the indices of the original image as an argument,
+    # # you get only the values at those locations (the shifted image)
+    # psf = warp(psf, trans, indices_spatial(psf), 0.0)
 
     # Add to image according to power law so that image is differentiable everywhere
+    psf = zeros(1300, 1300)
     anneal!(psf, -x/PSF_PIXEL_SIZE, -y/PSF_PIXEL_SIZE)
 
     # Resize by averaging and interpolating
@@ -76,7 +77,7 @@ function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     # println(1/sum(psf))
     # Normalize resized image: because we have averaged the pixels in downscaling,
     # we no longer have a true probability distribution, should rescale by (~1300^2/64^2)
-    return psf * IM_SCALE * exp(brightness)
+    return psf * IM_SCALE #* exp(brightness)
 end
 
 function cartesian_to_polar(x, y)

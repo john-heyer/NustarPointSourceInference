@@ -8,6 +8,7 @@ using Profile
 using Random
 using Serialization
 
+
 include("NustarConstants.jl")
 using .NustarConstants
 
@@ -57,6 +58,7 @@ end
 
 function create_model(sources)
     mean_image = TransformPSF.compose_mean_image(sources)
+    # display(heatmap(mean_image))
     observed_image = TransformPSF.sample_image(mean_image, 1)
     return NustarModel(observed_image)
 end
@@ -95,11 +97,11 @@ n_sources = 20
 X_Y_MAX = PSF_PIXEL_SIZE * PSF_IMAGE_LENGTH/2
 lg_b_min, lg_b_max = 7, 8  # TODO: Unit/scale for brightness
 var_x, var_y, var_b = (PSF_PIXEL_SIZE * 1)^2, (PSF_PIXEL_SIZE * 1)^2, .05^2
-samples = 2500
-burn_in_steps = 250
+samples = 1000
+burn_in_steps = 100
 jump_rate = 0
 
-@time sample_sources_main(
+sample_sources_main(
     n_sources, -X_Y_MAX, X_Y_MAX, lg_b_min, lg_b_max,
     var_x, var_y, var_b, samples, burn_in_steps, jump_rate
 )
