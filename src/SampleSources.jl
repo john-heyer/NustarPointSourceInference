@@ -7,6 +7,7 @@ using NPZ
 using Profile
 using Random
 using Serialization
+using Traceur
 
 
 include("NustarConstants.jl")
@@ -23,10 +24,10 @@ function poisson_log_prob(λ, k)
     if λ == 0
         return -Inf
     end
-    return -λ + k * log(λ) - lgamma(k+1)
+    return -λ + k * log(λ) - loggamma(k+1)
 end
 
-function (model::NustarModel)(θ)
+function (model::NustarModel)(θ::Array{Tuple{Float64,Float64,Float64},1})
     """
     Model callable to compute the conditional log likelihood of the sampled
     model parameters given the observed image.
@@ -45,10 +46,6 @@ function (model::NustarModel)(θ)
     return likelihood  # TODO: currently no priors
 end
 
-function parameter_transformation(model::NustarModel)
-    as((Xs = as(Array, n_sources), Ys = as(Array, n_sources), Bs = as(Array, asℝ₊, n_sources)))
-end
-
 function random_sources(x_y_min, x_y_max, lg_b_min, lg_b_max, n_sources)
     sources_x = rand(Uniform(x_y_min, x_y_max), n_sources)
     sources_y = rand(Uniform(x_y_min, x_y_max), n_sources)
@@ -58,7 +55,7 @@ end
 
 function create_model(sources)
     mean_image = TransformPSF.compose_mean_image(sources)
-    # display(heatmap(mean_image))
+    display(heatmap(mean_image))
     observed_image = TransformPSF.sample_image(mean_image, 1)
     return NustarModel(observed_image)
 end
@@ -75,11 +72,12 @@ function sample_sources_main(
     θ_init = random_sources(x_y_min, x_y_max, lg_b_min, lg_b_max, n_sources)
 
     println("Sampling")
-    posterior = RJMCMCSampler.nustar_rjmcmc(model, θ_init, samples, burn_in_steps, covariance, jump_rate)
+    posterior = RJMCMCSampler.nustar_rjmcmc(
+        model, θ_init, samples, burn_in_steps, covariance, jump_rate)
 
     println("Done Sampling.  Writing ground truth and posterior to disk")
     ground_truth = [sources_truth[j][i] for i in 1:length(sources_truth[1]), j in 1:length(sources_truth)]
-
+    sources_init = [θ_init[j][i] for i in 1:length(θ_init[1]), j in 1:length(θ_init)]
     posterior_array = [
         posterior[x][j][i]
             for i in 1:length(posterior[1][1]),
@@ -87,21 +85,21 @@ function sample_sources_main(
                 x in 1:length(posterior)
     ]
 
-    npzwrite("metropolis_data.npz", Dict("gt" => ground_truth, "posterior" => posterior_array))
+    npzwrite("metropolis_data.npz", Dict("gt" => ground_truth, "posterior" => posterior_array, "init" => sources_init))
     println("Done")
 end
 
 
 # Set up constants and configurations
-n_sources = 20
+n_sources = 5
 X_Y_MAX = PSF_PIXEL_SIZE * PSF_IMAGE_LENGTH/2
-lg_b_min, lg_b_max = 7, 8  # TODO: Unit/scale for brightness
-var_x, var_y, var_b = (PSF_PIXEL_SIZE * 1)^2, (PSF_PIXEL_SIZE * 1)^2, .05^2
+lg_b_min, lg_b_max = 7.0, 8.0  # TODO: Unit/scale for brightness
+var_x, var_y, var_b = (PSF_PIXEL_SIZE * 5)^2, (PSF_PIXEL_SIZE * 5)^2, .05^2
 samples = 1000
 burn_in_steps = 100
-jump_rate = 0
+jump_rate = 0.0
 
-sample_sources_main(
+@time sample_sources_main(
     n_sources, -X_Y_MAX, X_Y_MAX, lg_b_min, lg_b_max,
     var_x, var_y, var_b, samples, burn_in_steps, jump_rate
 )
