@@ -7,7 +7,7 @@ include("NustarConstants.jl")
 using .NustarConstants
 include("TransformPSF.jl")
 
-const P_SOURCE_XY = Uniform(-1.5 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE, 1.5 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE)
+const P_SOURCE_XY = Uniform(-1.0001 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE, 1.0001 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE)
 # TODO: Update this later
 const P_SOURCE_B = Uniform(exp(6), exp(9))
 
@@ -22,17 +22,8 @@ function poisson_log_prob(λ, k)
     return -λ + k * log(λ) - loggamma(k+1)
 end
 
-function outside_window(θ)
-    bound = PSF_IMAGE_LENGTH * PSF_PIXEL_SIZE * 1.5/2.0
-    return any([(abs(source[1]) > bound) | (abs(source[2]) > bound) for source in θ])
-end
-
 function log_prior(θ)
-    # TODO: prior on b
-    if outside_window(θ)
-        return -Inf
-    end
-    return 2 * length(θ) * log(pdf(P_SOURCE_XY, 0.0))
+    return sum([log(pdf(P_SOURCE_XY, source[1])) + log(pdf(P_SOURCE_XY, source[2])) for source in θ])
 end
 
 
