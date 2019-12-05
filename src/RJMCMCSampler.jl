@@ -52,7 +52,7 @@ function (model::NustarModel)(θ::Array{Tuple{Float64,Float64,Float64},1})
             for i in 1:length(model.observed_image)
         ]
     )
-    return log_likelihood + log_prior(θ)
+    return log_likelihood + log_prior(θ) + log(1.0/length(θ))
 end
 
 
