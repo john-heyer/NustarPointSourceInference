@@ -26,7 +26,7 @@ function anneal!(psf, x_loc_pixels, y_loc_pixels)
                 ((psf_half_length - i) - y_loc_pixels)^2 +
                 ((psf_half_length - j) - x_loc_pixels)^2
             )
-            psf[i, j] += 1/(1+d)
+            psf[i, j] += 1/sqrt((1+.1d^2))
         end
     end
 end
