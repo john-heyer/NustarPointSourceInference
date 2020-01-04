@@ -14,18 +14,17 @@ include("TransformPSF.jl")
 include("RJMCMCSampler.jl")
 
 
-function random_sources(x_y_min, x_y_max, lg_b_min, lg_b_max, n_sources)
-    sources_x = rand(Uniform(x_y_min, x_y_max), n_sources)
-    sources_y = rand(Uniform(x_y_min, x_y_max), n_sources)
-    sources_b = rand(Uniform(lg_b_min, lg_b_max), n_sources)
-    return [(sources_x[i], sources_y[i], sources_b[i]) for i in 1:n_sources]
+function random_sources(n_sources)
+    sources_x = rand(P_SOURCE_XY, n_sources)
+    sources_y = rand(P_SOURCE_XY, n_sources)
+    sources_b = rand(P_SOURCE_B, n_sources)
+    return [(sources_x[i], sources_y[i], log(sources_b[i])) for i in 1:n_sources]
 end
 
 function sample_sources_main(
-        n_sources, x_y_min, x_y_max, lg_b_min, lg_b_max,
-        var_x, var_y, var_b, samples, burn_in_steps, jump_rate
+        n_sources, var_x, var_y, var_b, samples, burn_in_steps, jump_rate
     )
-    sources_truth = random_sources(x_y_min, x_y_max, lg_b_min, lg_b_max, n_sources)
+    sources_truth = random_sources(n_sources)
     mean_image =  TransformPSF.compose_mean_image(sources_truth)
     observed_image = TransformPSF.sample_image(mean_image, 1)
 
@@ -33,7 +32,7 @@ function sample_sources_main(
 
     n_init_low, n_init_high = Int(floor(n_sources * .5)), Int(floor(n_sources * 1.5))
     n_init = rand(n_init_low:n_init_high)
-    θ_init = random_sources(x_y_min, x_y_max, lg_b_min, lg_b_max, n_init)
+    θ_init = random_sources(n_init)
     println("n sources: ", n_sources)
     println("n init: ", n_init)
 
@@ -58,16 +57,13 @@ end
 
 # Set up constants and configurations
 n_sources = 10
-X_Y_MAX = PSF_PIXEL_SIZE * PSF_IMAGE_LENGTH/2
-lg_b_min, lg_b_max = 7.0, 8.0  # TODO: Unit/scale for brightness
 var_x, var_y, var_b = (PSF_PIXEL_SIZE * 5)^2, (PSF_PIXEL_SIZE * 5)^2, .05^2
-samples = 2000
+samples = 300
 burn_in_steps = 0
-jump_rate = 0.4
+jump_rate = 1.0
 
 @time sample_sources_main(
-    n_sources, -X_Y_MAX, X_Y_MAX, lg_b_min, lg_b_max,
-    var_x, var_y, var_b, samples, burn_in_steps, jump_rate
+    n_sources, var_x, var_y, var_b, samples, burn_in_steps, jump_rate
 )
 
 end  # module

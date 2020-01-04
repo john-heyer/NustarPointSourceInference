@@ -7,13 +7,11 @@ include("NustarConstants.jl")
 using .NustarConstants
 include("TransformPSF.jl")
 
-const P_SOURCE_XY = Uniform(-1.0001 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE, 1.0001 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE)
-# TODO: Update this later
-const P_SOURCE_B = Uniform(exp(6), exp(9))
-
 struct NustarModel{T}
     observed_image::T
 end
+
+@enum Move normal split merge birth death
 
 function poisson_log_prob(λ, k)
     if λ == 0
@@ -22,8 +20,31 @@ function poisson_log_prob(λ, k)
     return -λ + k * log(λ) - loggamma(k+1)
 end
 
+zero_prior_window = 0
+zero_prior_b = 0
 function log_prior(θ)
-    return sum([log(pdf(P_SOURCE_XY, source[1])) + log(pdf(P_SOURCE_XY, source[2])) for source in θ])
+    s = sum(
+        [
+            log(pdf(P_SOURCE_XY, source[1])) +
+            log(pdf(P_SOURCE_XY, source[2]))
+            for source in θ
+        ]
+    )
+    s2 = sum(
+        [
+            log(pdf(P_SOURCE_B, exp(source[3])))
+            for source in θ
+        ]
+    )
+    global zero_prior_window
+    global zero_prior_b
+    if s == -Inf
+        zero_prior_window += 1
+    elseif s2 == -Inf
+        zero_prior_b += 1
+    end
+
+    return s
 end
 
 
@@ -57,7 +78,6 @@ function split(head, point_index, covariance)
     sample_new = [head[i] for i in 1:length(head) if i != point_index]
     push!(sample_new, source_1, source_2)
     # Compute probability of reverse move: p(merge(s1, s2))
-    # TODO: FIX THIS
     distance_dist = distance_distribution(sample_new)
     p_merge = distance_dist[length(distance_dist)][3]
     # Full proposal ratio: 1/p(q) * p(merge(s1, s2))/p(split(s)) * J
@@ -65,10 +85,6 @@ function split(head, point_index, covariance)
 end
 
 function distance(head, i, j)
-    if i == j
-        println("fucked up")
-        return Inf
-    end
     ϵ = 2 * PSF_PIXEL_SIZE
     return sqrt((head[i][1] - head[j][1])^2 + (head[i][2] - head[j][2])^2) + ϵ
 end
@@ -105,15 +121,13 @@ function merge(head, covariance)
     sample_new = [head[i] for i in 1:length(head) if (i != point_index) & (i != point_merge_index)]
     push!(sample_new, (x_merged, y_merged, b_merged))
     # Full proposal ratio: p(q) * p(split(s))/p(merge(s1, s2)) * 1/J
-    # println("pdf q")
-    # println(pdf(q_dist, q))
     return sample_new, pdf(q_dist, q) * 1.0/p_merge * 1.0/length(sample_new) #* 1.0/exp(b_merged)
 end
 
 function birth(head)
     source = (rand(P_SOURCE_XY), rand(P_SOURCE_XY), log(rand(P_SOURCE_B)))
     sample_new = vcat([s for s in head], [source])
-    p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) #* pdf(P_SOURCE_B, source[3])
+    p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) #* pdf(P_SOURCE_B, exp(source[3]))
     return sample_new, 1.0/length(sample_new) * 1.0/p_source
 end
 
@@ -121,7 +135,7 @@ function death(head)
     point_index = rand(1:length(head))
     source = head[point_index]
     sample_new = [head[i] for i in 1:length(head) if i != point_index]
-    p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) #* pdf(P_SOURCE_B, source[3])
+    p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) #* pdf(P_SOURCE_B, exp(source[3]))
     return sample_new, length(head) * p_source
 end
 
@@ -187,7 +201,7 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
         jump = rand(Uniform(0, 1)) < jump_rate
         if jump
             up = rand(Uniform(0, 1)) < 0.5
-            birth_death = rand(Uniform(0, 1)) < 0.5
+            birth_death = rand(Uniform(0, 1)) < 1.0
             if up
                 if birth_death
                     birth_moves += 1
@@ -269,6 +283,10 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
         "death acceptance rate" => death_accept/death_moves,
         "n_sources_counts" => n_sources_counts,
     )
+    global zero_prior_window
+    global zero_prior_b
+    println("zero prior rate w: ", zero_prior_window/(burn_in_steps + samples))
+    println("zero prior rate b: ", zero_prior_b/(burn_in_steps + samples))
     return chain, stats
 end
 
