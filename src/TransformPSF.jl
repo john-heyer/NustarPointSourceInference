@@ -77,7 +77,7 @@ function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     # println(1/sum(psf))
     # Normalize resized image: because we have averaged the pixels in downscaling,
     # we no longer have a true probability distribution, should rescale by (~1300^2/64^2)
-    return psf * IM_SCALE #* exp(brightness)
+    return psf * IM_SCALE * exp(brightness)
 end
 
 function cartesian_to_polar(x, y)

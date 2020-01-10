@@ -20,31 +20,15 @@ function poisson_log_prob(λ, k)
     return -λ + k * log(λ) - loggamma(k+1)
 end
 
-zero_prior_window = 0
-zero_prior_b = 0
 function log_prior(θ)
-    s = sum(
+    return sum(
         [
             log(pdf(P_SOURCE_XY, source[1])) +
-            log(pdf(P_SOURCE_XY, source[2]))
+            log(pdf(P_SOURCE_XY, source[2])) +
+            log(pdf(P_SOURCE_B_PRIOR, exp(source[3])))
             for source in θ
         ]
     )
-    s2 = sum(
-        [
-            log(pdf(P_SOURCE_B, exp(source[3])))
-            for source in θ
-        ]
-    )
-    global zero_prior_window
-    global zero_prior_b
-    if s == -Inf
-        zero_prior_window += 1
-    elseif s2 == -Inf
-        zero_prior_b += 1
-    end
-
-    return s
 end
 
 
@@ -82,7 +66,7 @@ function split(head, covariance)
     distance_dist = distance_distribution(sample_new)
     p_merge = distance_dist[length(distance_dist)][3]
     # Full proposal ratio: 1/p(q) * p(merge(s1, s2))/p(split(s)) * J
-    return sample_new, 1.0/pdf(q_dist, q) * p_merge * length(head) #* exp(source[3])
+    return sample_new, 1.0/pdf(q_dist, q) * p_merge * length(head) * exp(source[3])
 end
 
 function distance(head, i, j)
@@ -122,13 +106,13 @@ function merge(head, covariance)
     sample_new = [head[i] for i in 1:length(head) if (i != point_index) & (i != point_merge_index)]
     push!(sample_new, (x_merged, y_merged, b_merged))
     # Full proposal ratio: p(q) * p(split(s))/p(merge(s1, s2)) * 1/J
-    return sample_new, pdf(q_dist, q) * 1.0/p_merge * 1.0/length(sample_new) #* 1.0/exp(b_merged)
+    return sample_new, pdf(q_dist, q) * 1.0/p_merge * 1.0/length(sample_new) * 1.0/exp(b_merged)
 end
 
 function birth(head)
     source = (rand(P_SOURCE_XY), rand(P_SOURCE_XY), log(rand(P_SOURCE_B)))
     sample_new = vcat([s for s in head], [source])
-    p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) #* pdf(P_SOURCE_B, exp(source[3]))
+    p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) * pdf(P_SOURCE_B, exp(source[3]))
     return sample_new, 1.0/length(sample_new) * 1.0/p_source
 end
 
@@ -136,7 +120,7 @@ function death(head)
     point_index = rand(1:length(head))
     source = head[point_index]
     sample_new = [head[i] for i in 1:length(head) if i != point_index]
-    p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) #* pdf(P_SOURCE_B, exp(source[3]))
+    p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) * pdf(P_SOURCE_B, exp(source[3]))
     return sample_new, length(head) * p_source
 end
 
