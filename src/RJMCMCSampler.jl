@@ -11,7 +11,7 @@ struct NustarModel{T}
     observed_image::T
 end
 
-@enum Move normal split merge birth death
+@enum Move normal_move split_move merge_move birth_move death_move
 
 function poisson_log_prob(λ, k)
     if λ == 0
@@ -68,7 +68,8 @@ function (model::NustarModel)(θ::Array{Tuple{Float64,Float64,Float64},1})
 end
 
 
-function split(head, point_index, covariance)
+function split(head, covariance)
+    point_index = rand(1:length(head))
     α = rand(Uniform(0,1))
     q_dist = MvNormal(covariance[1:2, 1:2])
     q = rand(q_dist)
@@ -140,24 +141,19 @@ function death(head)
 end
 
 
-function jump_proposal(head, up, birth_death, covariance)
-    if up
-        if birth_death
-            sample_new, proposal_acceptance_ratio = birth(head)
-            # println("birth ratio: ", proposal_acceptance_ratio)
-        else
-            point_index = rand(1:length(head))
-            sample_new, proposal_acceptance_ratio = split(head, point_index, covariance)
-            # println("split ratio: ", proposal_acceptance_ratio)
-        end
-    else
-        if birth_death
-            sample_new, proposal_acceptance_ratio = death(head)
-            # println("death ratio: ", proposal_acceptance_ratio)
-        else
-            sample_new, proposal_acceptance_ratio = merge(head, covariance)
-            # println("merge ratio: ", proposal_acceptance_ratio)
-        end
+function jump_proposal(head, move_type, covariance)
+    if move_type == birth_move
+        sample_new, proposal_acceptance_ratio = birth(head)
+        # println("birth ratio: ", proposal_acceptance_ratio)
+    elseif move_type == death_move
+        sample_new, proposal_acceptance_ratio = death(head)
+        # println("death ratio: ", proposal_acceptance_ratio)
+    elseif move_type == split_move
+        sample_new, proposal_acceptance_ratio = split(head, covariance)
+        # println("split ratio: ", proposal_acceptance_ratio)
+    elseif move_type == merge_move
+        sample_new, proposal_acceptance_ratio = merge(head, covariance)
+        # println("merge ratio: ", proposal_acceptance_ratio)
     end
     return sample_new, proposal_acceptance_ratio
 end
@@ -170,91 +166,101 @@ function source_new(source, covariance)::Tuple{Float64, Float64, Float64}
 end
 
 
-function proposal(head, covariance)::Array{Tuple{Float64,Float64,Float64},1}
+function normal_proposal(head, covariance)::Tuple{Array{Tuple{Float64,Float64,Float64},1}, Float64}
     n_sources = length(head)
     sample_new = [source_new(source, covariance) for source in head]
-    return sample_new
+    return sample_new, 1.0
 end
 
+function proposal(head, move_type, covariance)
+    if move_type == normal_move
+        return normal_proposal(head, covariance)
+    else
+        return jump_proposal(head, move_type, covariance)
+    end
+end
+
+function get_move_type(jump_rate)
+    if rand(Uniform(0, 1)) < jump_rate
+        split_merge = rand(Uniform(0, 1)) < .5
+        up = rand(Uniform(0, 1)) < .5
+        if split_merge
+            if up
+                return split_move
+            else
+                return merge_move
+            end
+        else
+            if up
+                return birth_move
+            else
+                return death_move
+            end
+        end
+    else
+        return normal_move
+    end
+end
+
+function new_move_stats()
+    return OrderedDict(
+        normal_move => OrderedDict(
+            "proposed" => 0,
+            "accepted" => 0,
+            "zero A moves" => 0
+        ),
+        split_move => OrderedDict(
+            "proposed" => 0,
+            "accepted" => 0,
+            "zero A moves" => 0
+        ),
+        merge_move => OrderedDict(
+            "proposed" => 0,
+            "accepted" => 0,
+            "zero A moves" => 0
+        ),
+        birth_move => OrderedDict(
+            "proposed" => 0,
+            "accepted" => 0,
+            "zero A moves" => 0
+        ),
+        death_move => OrderedDict(
+            "proposed" => 0,
+            "accepted" => 0,
+            "zero A moves" => 0
+        )
+    )
+end
+
+function record_move!(move_stats, move_type, A, accept)
+    zero_A = (A == 0)
+    move_stats[move_type]["proposed"] += 1
+    move_stats[move_type]["accepted"] += accept
+    move_stats[move_type]["zero A moves"] += zero_A
+end
 
 function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covariance, jump_rate)
     model = NustarModel(observed_image)
     chain = Array{Tuple{Float64,Float64,Float64},1}[]
     head = θ_init
-    accepted_before = 0
-    accepted_after = 0
-    ratio_inf = 0
-    ratio_zero = 0
-    ratio_finite = 0
-    split_moves = 0
-    merge_moves = 0
-    split_accept = 0
-    merge_accept = 0
-    birth_moves = 0
-    death_moves = 0
-    birth_accept = 0
-    death_accept = 0
+    accepted = 0
+    move_stats = new_move_stats()
     for i in 1:(burn_in_steps + samples)
         if (i-1) % 50 == 0
             println("Iteration: ", i-1)
         end
-        jump = rand(Uniform(0, 1)) < jump_rate
-        if jump
-            up = rand(Uniform(0, 1)) < 0.5
-            birth_death = rand(Uniform(0, 1)) < 1.0
-            if up
-                if birth_death
-                    birth_moves += 1
-                else
-                    split_moves += 1
-                end
-            else
-                if birth_death
-                    death_moves += 1
-                else
-                    merge_moves += 1
-                end
-            end
-            sample_new, proposal_acceptance_ratio = jump_proposal(head, up, birth_death, covariance)
-        else
-            sample_new, proposal_acceptance_ratio = proposal(head, covariance), 1.0
-        end
+        move_type = get_move_type(jump_rate)
+        sample_new, proposal_acceptance_ratio = proposal(head, move_type, covariance)
         A = exp(model(sample_new) - model(head)) * proposal_acceptance_ratio
-        if A == 0
-            ratio_zero += 1
-        elseif A == Inf
-            ratio_inf += 1
-        else
-            ratio_finite += 1
-        end
         accept = rand(Uniform(0, 1)) < A
         if accept
             head = sample_new
-            if i > burn_in_steps
-                accepted_after += 1
-            else
-                accepted_before += 1
-            end
-            if jump
-                if up
-                    if birth_death
-                        birth_accept += 1
-                    else
-                        split_accept += 1
-                    end
-                else
-                    if birth_death
-                        death_accept += 1
-                    else
-                        merge_accept += 1
-                    end
-                end
-            end
+            accepted += 1
         end
         if i > burn_in_steps
             push!(chain, head)
         end
-
+        record_move!(move_stats, move_type, A, accept)
     end
     n_sources_counts = Dict{Int, Int}()
     for sample in chain
@@ -262,31 +268,11 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
     end
     stats = OrderedDict(
         "proposals" => burn_in_steps + samples,
-        "accepted" => accepted_before + accepted_after,
-        "acceptance rate total" => (accepted_before + accepted_after)/(burn_in_steps + samples),
-        "acceptance rate burn in" => accepted_before/burn_in_steps,
-        "acceptance rate after burn in" => accepted_after/samples,
-        "zero A_rate" => ratio_zero/(burn_in_steps + samples),
-        "infinite A_rate" => ratio_inf/(burn_in_steps + samples),
-        "finite A_rate" => ratio_finite/(burn_in_steps + samples),
-        "split proposals" => split_moves,
-        "split accepts" => split_accept,
-        "split acceptance rate" => split_accept/split_moves,
-        "merge proposals" => merge_moves,
-        "merge accepts" => merge_accept,
-        "merge acceptance rate" => merge_accept/merge_moves,
-        "birth proposals" => birth_moves,
-        "birth accepts" => birth_accept,
-        "birth acceptance rate" => birth_accept/birth_moves,
-        "death proposals" => death_moves,
-        "death accepts" => death_accept,
-        "death acceptance rate" => death_accept/death_moves,
+        "accepted" => accepted,
+        "acceptance rate" => accepted/(burn_in_steps + samples),
+        "stats by move type" => move_stats,
         "n_sources_counts" => n_sources_counts,
     )
-    global zero_prior_window
-    global zero_prior_b
-    println("zero prior rate w: ", zero_prior_window/(burn_in_steps + samples))
-    println("zero prior rate b: ", zero_prior_b/(burn_in_steps + samples))
     return chain, stats
 end
 
