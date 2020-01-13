@@ -91,9 +91,15 @@ function merge(head, covariance)
     cumulative_distance_dist = cumulative_distribution(distance_dist)
     v = rand(Uniform(0,1))
     point_index, point_merge_index, p_merge = -1, -1, 0
-    for (point_i, point_merge, p) in cumulative_distance_dist
+    for i in 1:length(cumulative_distance_dist)
+        point_i, point_merge, p = cumulative_distance_dist[i]
         if v < p
-            point_index, point_merge_index, p_merge = point_i, point_merge, p
+            point_index, point_merge_index = point_i, point_merge
+            if i == 1
+                p_merge = p
+            else
+                p_merge = p - cumulative_distance_dist[i-1][3]
+            end
             break
         end
     end
