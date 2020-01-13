@@ -235,6 +235,9 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
         end
         move_type = get_move_type(jump_rate)
         sample_new, proposal_acceptance_ratio = proposal(head, move_type, covariance)
+	if proposal_acceptance_ratio == 0
+	    println("proposal acceptance_ratio is zero ", move_type)
+	end
         A = exp(model(sample_new) - model(head)) * proposal_acceptance_ratio
         accept = rand(Uniform(0, 1)) < A
         if accept

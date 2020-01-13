@@ -58,9 +58,9 @@ end
 # Set up constants and configurations
 n_sources = 10
 var_x, var_y, var_b = (PSF_PIXEL_SIZE * 5)^2, (PSF_PIXEL_SIZE * 5)^2, .05^2
-samples = 100
+samples = 2000
 burn_in_steps = 0
-jump_rate = 0.4
+jump_rate = 0.1
 
 @time sample_sources_main(
     n_sources, var_x, var_y, var_b, samples, burn_in_steps, jump_rate
