@@ -25,7 +25,7 @@ function log_prior(θ)
         [
             log(pdf(P_SOURCE_XY, source[1])) +
             log(pdf(P_SOURCE_XY, source[2])) +
-            log(pdf(P_SOURCE_B_PRIOR, exp(source[3])))
+            log(pdf(P_SOURCE_B, exp(source[3])))
             for source in θ
         ]
     )
