@@ -113,10 +113,8 @@ function merge(head, covariance)
     push!(sample_new, (x_merged, y_merged, b_merged))
     # Full proposal ratio: p(q) * p(split(s))/p(merge(s1, s2)) * 1/J
     r = pdf(q_dist, q) * 1.0/p_merge * 1.0/length(sample_new) * 1.0/exp(b_merged)
-    if r == 0
-        println("pm: ", p_merge)
-        println("q: ", pdf(q_dist, q), " ", q)
-    end
+    println(cumulative_distance_dist)
+    println(p_merge)
     return sample_new, pdf(q_dist, q) * 1.0/p_merge * 1.0/length(sample_new) * 1.0/exp(b_merged)
 end
 
