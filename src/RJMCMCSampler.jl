@@ -70,8 +70,7 @@ function split(head, covariance)
 end
 
 function distance(head, i, j)
-    ϵ = 2 * PSF_PIXEL_SIZE
-    return sqrt((head[i][1] - head[j][1])^2 + (head[i][2] - head[j][2])^2) + ϵ
+    return ((head[i][1] - head[j][1])^2 + (head[i][2] - head[j][2])^2)^2
 end
 
 function distance_distribution(head)
@@ -95,11 +94,7 @@ function merge(head, covariance)
         point_i, point_merge, p = cumulative_distance_dist[i]
         if v < p
             point_index, point_merge_index = point_i, point_merge
-            if i == 1
-                p_merge = p
-            else
-                p_merge = p - cumulative_distance_dist[i-1][3]
-            end
+            p_merge = distance_dist[i][3]
             break
         end
     end
@@ -113,8 +108,6 @@ function merge(head, covariance)
     push!(sample_new, (x_merged, y_merged, b_merged))
     # Full proposal ratio: p(q) * p(split(s))/p(merge(s1, s2)) * 1/J
     r = pdf(q_dist, q) * 1.0/p_merge * 1.0/length(sample_new) * 1.0/exp(b_merged)
-    println(cumulative_distance_dist)
-    println(p_merge)
     return sample_new, pdf(q_dist, q) * 1.0/p_merge * 1.0/length(sample_new) * 1.0/exp(b_merged)
 end
 
