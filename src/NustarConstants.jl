@@ -8,7 +8,12 @@ export PSF_PIXEL_SIZE
 export IM_SCALE
 export P_SOURCE_XY
 export P_SOURCE_B
+export N_MAX
+export N_MIN
 
+
+const N_MIN = 5
+const N_MAX = 30
 
 const NUSTAR_IMAGE_LENGTH = 64
 const PSF_IMAGE_LENGTH = 1300
@@ -18,9 +23,10 @@ const IM_SCALE = 1300^2/64^2
 const NUSTAR_PIXEL_SIZE =  5.5450564776903175e-05
 const PSF_PIXEL_SIZE = 2.9793119397393605e-06
 
+
 const P_SOURCE_XY = Uniform(-1.1 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE, 1.1 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE)
 # TODO: Update this later
-const P_SOURCE_B = Uniform(exp(6), exp(8))
+const P_SOURCE_B = Uniform(exp(3), exp(7))
 
 
 end #  module

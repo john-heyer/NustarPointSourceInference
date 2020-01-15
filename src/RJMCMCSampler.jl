@@ -2,25 +2,31 @@ module RJMCMCSampler
 
 using Distributions, Random, SpecialFunctions
 using DataStructures
+using NPZ
 
 include("NustarConstants.jl")
 using .NustarConstants
 include("TransformPSF.jl")
 
-struct NustarModel{T}
-    observed_image::T
-end
 
-@enum Move normal_move split_move merge_move birth_move death_move
+@enum Move normal_move split_move merge_move birth_move death_move hyper_move
 
 function poisson_log_prob(λ, k)
     if λ == 0
+        println("zero lambda")
         return -Inf
     end
     return -λ + k * log(λ) - loggamma(k+1)
 end
 
-function log_prior(θ)
+function P(μ)
+    if (μ < N_MIN) || (μ > N_MAX)
+        return 0
+    end
+    return 1.0/μ * 1.0/(log(N_MAX) - log(N_MIN))
+end
+
+function log_prior(θ, μ)
     return sum(
         [
             log(pdf(P_SOURCE_XY, source[1])) +
@@ -28,35 +34,27 @@ function log_prior(θ)
             log(pdf(P_SOURCE_B, exp(source[3])))
             for source in θ
         ]
-    )
+    ) + log(P(μ)) + poisson_log_prob(μ, length(θ))  # P(μ) + P(N|μ)
 end
 
 
-function (model::NustarModel)(θ::Array{Tuple{Float64,Float64,Float64},1})
-    """
-    Model callable to compute the conditional log likelihood of the sampled
-    model parameters given the observed image.
-
-    Params:
-    - θ (model parameters): Array of Tuples of size 3 (source_x, source_y, source_b)
-
-    Returns: likelihood
-    """
+function log_likelihood(θ, observed_image)
     model_rate_image = TransformPSF.compose_mean_image(θ)
-    log_likelihood = sum(
-        [poisson_log_prob(model_rate_image[i], model.observed_image[i])
-            for i in 1:length(model.observed_image)
+    # println("max rate count: ", maximum(model_rate_image))
+    lg_likelihood = sum(
+        [poisson_log_prob(model_rate_image[i], observed_image[i])
+            for i in 1:length(observed_image)
         ]
     )
-    return log_likelihood + log_prior(θ) + log(1.0/length(θ))
+    return lg_likelihood
 end
 
 
-function split(head, covariance)
-    point_index = rand(1:length(head))
-    α = rand(Uniform(0,1))
+function split(head, covariance, rng)
+    point_index = rand(rng, 1:length(head))
+    α = rand(rng, Uniform(0,1))
     q_dist = MvNormal(covariance[1:2, 1:2])
-    q = rand(q_dist)
+    q = rand(rng, q_dist)
     source = head[point_index]
     source_1 = (source[1] + q[1]/2, source[2] + q[2]/2, source[3] + log(α))
     source_2 = (source[1] - q[1]/2, source[2] - q[2]/2, source[3] + log(1-α))
@@ -85,10 +83,10 @@ function cumulative_distribution(dist)
 end
 
 
-function merge(head, covariance)
+function merge(head, covariance, rng)
     distance_dist = distance_distribution(head)
     cumulative_distance_dist = cumulative_distribution(distance_dist)
-    v = rand(Uniform(0,1))
+    v = rand(rng, Uniform(0,1))
     point_index, point_merge_index, p_merge = -1, -1, 0
     for i in 1:length(cumulative_distance_dist)
         point_i, point_merge, p = cumulative_distance_dist[i]
@@ -111,15 +109,15 @@ function merge(head, covariance)
     return sample_new, pdf(q_dist, q) * 1.0/p_merge * 1.0/length(sample_new) * 1.0/exp(b_merged)
 end
 
-function birth(head)
-    source = (rand(P_SOURCE_XY), rand(P_SOURCE_XY), log(rand(P_SOURCE_B)))
+function birth(head, rng)
+    source = (rand(rng, P_SOURCE_XY), rand(rng, P_SOURCE_XY), log(rand(rng, P_SOURCE_B)))
     sample_new = vcat([s for s in head], [source])
     p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) * pdf(P_SOURCE_B, exp(source[3]))
     return sample_new, 1.0/length(sample_new) * 1.0/p_source
 end
 
-function death(head)
-    point_index = rand(1:length(head))
+function death(head, rng)
+    point_index = rand(rng, 1:length(head))
     source = head[point_index]
     sample_new = [head[i] for i in 1:length(head) if i != point_index]
     p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) * pdf(P_SOURCE_B, exp(source[3]))
@@ -127,49 +125,56 @@ function death(head)
 end
 
 
-function jump_proposal(head, move_type, covariance)
+function jump_proposal(head, move_type, covariance, rng)
     if move_type == birth_move
-        sample_new, proposal_acceptance_ratio = birth(head)
-        # println("birth ratio: ", proposal_acceptance_ratio)
+        sample_new, proposal_ratio = birth(head, rng)
     elseif move_type == death_move
-        sample_new, proposal_acceptance_ratio = death(head)
-        # println("death ratio: ", proposal_acceptance_ratio)
+        sample_new, proposal_ratio = death(head, rng)
     elseif move_type == split_move
-        sample_new, proposal_acceptance_ratio = split(head, covariance)
-        # println("split ratio: ", proposal_acceptance_ratio)
+        sample_new, proposal_ratio = split(head, covariance, rng)
     elseif move_type == merge_move
-        sample_new, proposal_acceptance_ratio = merge(head, covariance)
-        # println("merge ratio: ", proposal_acceptance_ratio)
+        sample_new, proposal_ratio = merge(head, covariance, rng)
     end
-    return sample_new, proposal_acceptance_ratio
+    return sample_new, proposal_ratio
 end
 
 
-function source_new(source, covariance)::Tuple{Float64, Float64, Float64}
-    q = rand(MvNormal(covariance))
+function source_new(source, covariance, rng)::Tuple{Float64, Float64, Float64}
+    q = rand(rng, MvNormal(covariance))
     source_out = (source[1] + q[1], source[2] + q[2], source[3] + q[3])
     return source_out
 end
 
 
-function normal_proposal(head, covariance)::Tuple{Array{Tuple{Float64,Float64,Float64},1}, Float64}
+function normal_proposal(head, covariance, rng)::Tuple{Array{Tuple{Float64,Float64,Float64},1}, Float64}
     n_sources = length(head)
-    sample_new = [source_new(source, covariance) for source in head]
+    sample_new = [source_new(source, covariance, rng) for source in head]
     return sample_new, 1.0
 end
 
-function proposal(head, move_type, covariance)
+function hyper_proposal(μ, rng)
+    return μ + rand(rng, Normal(0.0, 2))
+end
+
+function proposal(head, μ, move_type, covariance, rng)
     if move_type == normal_move
-        return normal_proposal(head, covariance)
+        sample_new, proposal_rate = normal_proposal(head, covariance, rng)
+        return sample_new, proposal_rate, μ
+    elseif move_type == hyper_move
+        return head, 1.0, hyper_proposal(μ, rng)
     else
-        return jump_proposal(head, move_type, covariance)
+        sample_new, proposal_rate = jump_proposal(head, move_type, covariance, rng)
+        return sample_new, proposal_rate, μ
     end
 end
 
-function get_move_type(jump_rate)
-    if rand(Uniform(0, 1)) < jump_rate
-        split_merge = rand(Uniform(0, 1)) < .5
-        up = rand(Uniform(0, 1)) < .5
+function get_move_type(jump_rate, hyper_rate, rng)
+    r = rand(rng, Uniform(0, 1))
+    if r < hyper_rate
+        return hyper_move
+    elseif r < jump_rate + hyper_rate
+        split_merge = rand(rng, Uniform(0, 1)) < .5
+        up = rand(rng, Uniform(0, 1)) < .5
         if split_merge
             if up
                 return split_move
@@ -214,6 +219,11 @@ function new_move_stats()
             "proposed" => 0,
             "accepted" => 0,
             "zero A moves" => 0
+        ),
+        hyper_move => OrderedDict(
+            "proposed" => 0,
+            "accepted" => 0,
+            "zero A moves" => 0
         )
     )
 end
@@ -225,26 +235,65 @@ function record_move!(move_stats, move_type, A, accept)
     move_stats[move_type]["zero A moves"] += zero_A
 end
 
-function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covariance, jump_rate)
-    model = NustarModel(observed_image)
+function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covariance, jump_rate, μ_init, hyper_rate, rng)
     chain = Array{Tuple{Float64,Float64,Float64},1}[]
     head = θ_init
+    μ = μ_init
     accepted = 0
     move_stats = new_move_stats()
+    mus = [μ]
+    current_lg_l = log_likelihood(head, observed_image)
+    current_lg_p = log_prior(head, μ)
     for i in 1:(burn_in_steps + samples)
-        if (i-1) % 50 == 0
+        if (i-1) % 100 == 0
             println("Iteration: ", i-1)
         end
-        move_type = get_move_type(jump_rate)
-        sample_new, proposal_acceptance_ratio = proposal(head, move_type, covariance)
-	if proposal_acceptance_ratio == 0
-	    println("proposal acceptance_ratio is zero ", move_type)
-	end
-        A = exp(model(sample_new) - model(head)) * proposal_acceptance_ratio
-        accept = rand(Uniform(0, 1)) < A
+        move_type = get_move_type(jump_rate, hyper_rate, rng)
+        sample_new, proposal_ratio, μ_new = proposal(head, μ, move_type, covariance, rng)
+        sample_lg_p = log_prior(sample_new, μ_new)
+        # Don't recompute likelihood if it's a hyper_move
+        if move_type == hyper_move
+            sample_lg_l = current_lg_l
+        else
+            sample_lg_l = log_likelihood(sample_new, observed_image)
+        end
+        sample_lg_joint = sample_lg_l + sample_lg_p
+        A = exp(sample_lg_joint - (current_lg_l + current_lg_p)) * proposal_ratio
+        # if A == 0
+            # if move_type == normal_move
+            #     if sample_lg_p > -Inf && (i > 200)
+            #         println("normal zero")
+            #         zero = [sample_new[j][i] for i in 1:length(sample_new[1]), j in 1:length(sample_new)]
+            #         current = [head[j][i] for i in 1:length(head[1]), j in 1:length(head)]
+            #         new_map = TransformPSF.compose_mean_image(sample_new)
+            #         old_map = TransformPSF.compose_mean_image(head)
+            #         npzwrite("zero_move.npz", Dict("new" => zero, "head" => current, "n_map" => new_map, "o_map" => old_map, "sample" => observed_image))
+            #         println("done writing")
+            #     end
+            # end
+            # if move_type == death_move
+            #     println(i)
+            #     println("================================")
+            #     println("ZERO MOVE!")
+            #     println("MOVE TYPE: ", move_type)
+            #     println("LOG LIKELIHOOD: ", sample_lg_l)
+            #     println("LOG PRIOR: ", sample_lg_p)
+            #     println("LOG JOINT: ", sample_lg_joint)
+            #     println("CURRENT LOG JOINT: ", current_lg_joint)
+            #     println("PROPOSAL RATIO: ", proposal_ratio)
+            #     println("================================")
+            #     println()
+            # end
+        # end
+        accept = rand(rng, Uniform(0, 1)) < A
         if accept
             head = sample_new
+            μ = μ_new
+            current_lg_l, current_lg_p = sample_lg_l, sample_lg_p
             accepted += 1
+            if move_type == hyper_move
+                push!(mus, μ)
+            end
         end
         if i > burn_in_steps
             push!(chain, head)
@@ -258,9 +307,9 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
     stats = OrderedDict(
         "proposals" => burn_in_steps + samples,
         "accepted" => accepted,
-        "acceptance rate" => accepted/(burn_in_steps + samples),
         "stats by move type" => move_stats,
         "n_sources_counts" => n_sources_counts,
+        "mus" => mus
     )
     return chain, stats
 end

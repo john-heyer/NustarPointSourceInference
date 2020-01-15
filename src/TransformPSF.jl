@@ -71,13 +71,15 @@ function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     # Add to image according to power law so that image is differentiable everywhere
     psf = zeros(1300, 1300)
     anneal!(psf, -x/PSF_PIXEL_SIZE, -y/PSF_PIXEL_SIZE)
-
     # Resize by averaging and interpolating
     psf = imresize(psf, new_shape)
     # println(1/sum(psf))
     # Normalize resized image: because we have averaged the pixels in downscaling,
     # we no longer have a true probability distribution, should rescale by (~1300^2/64^2)
-    return psf * IM_SCALE * exp(brightness)
+    out = psf * 1.0/sum(psf) * exp(brightness)
+    # println("max out: ")
+    # println(maximum(out))
+    return out
 end
 
 function cartesian_to_polar(x, y)
