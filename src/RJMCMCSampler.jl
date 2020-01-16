@@ -4,6 +4,8 @@ using Distributions, Random, SpecialFunctions
 using DataStructures
 using NPZ
 
+export Move
+
 include("NustarConstants.jl")
 using .NustarConstants
 include("TransformPSF.jl")
