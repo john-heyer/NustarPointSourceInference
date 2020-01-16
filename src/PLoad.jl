@@ -3,6 +3,6 @@ using Distributed
 @everywhere begin
     using Pkg
     Pkg.activate(".")
-    include("src/SampleSources.jl")
+    include("SampleSources.jl")
     using .SampleSources
 end
