@@ -63,6 +63,7 @@ end
 
 function sample_sources_main(parallel=false)
     sources_truth = random_sources(N_SOURCES_TRUTH)
+    println("SAMPLES: ", SAMPLES)
 
     mean_image =  TransformPSF.compose_mean_image(sources_truth)
     observed_image = TransformPSF.sample_image(mean_image, 1)
@@ -104,6 +105,5 @@ function sample_sources_main(parallel=false)
     end
     println("Done")
 end
-
 
 end  # module

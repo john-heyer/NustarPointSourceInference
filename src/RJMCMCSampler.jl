@@ -309,6 +309,7 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
     stats = OrderedDict(
         "proposals" => burn_in_steps + samples,
         "accepted" => accepted,
+        "acceptance rate" => accepted / (burn_in_steps + samples),
         "stats by move type" => move_stats,
         "n_sources_counts" => n_sources_counts,
         "mus" => mus
