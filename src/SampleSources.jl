@@ -106,6 +106,4 @@ function sample_sources_main(parallel=false)
 end
 
 
-@time sample_sources_main(true)
-
 end  # module
