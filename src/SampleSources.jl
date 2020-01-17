@@ -26,7 +26,7 @@ function do_mcmc(img_and_rng)
     n_init = rand(Poisson(μ_init))
     θ_init = random_sources(n_init)
     posterior, stats = nustar_rjmcmc(
-        observed_image, θ_init, Int(floor(SAMPLES/N_CHAINS)), BURN_IN_STEPS, covariance, JUMP_RATE, μ_init, HYPER_RATE, rng)
+        observed_image, θ_init, Int(floor(SAMPLES/N_CHAINS)), BURN_IN_STEPS, COVARIANCE, JUMP_RATE, μ_init, HYPER_RATE, rng)
     return posterior, stats
 end
 
