@@ -2,9 +2,9 @@ using Distributed
 addprocs()
 
 @everywhere begin
-    include("src/SampleSources.jl")
     using Pkg
     Pkg.activate(".")
+    include("src/SampleSources.jl")
 end
 
 println("running")
