@@ -20,6 +20,15 @@ function random_sources(n_sources)
     return [(sources_x[i], sources_y[i], log(sources_b[i])) for i in 1:n_sources]
 end
 
+function do_mcmc(rng)
+    μ_init = exp(rand(Uniform(log(N_MIN), log(N_MAX))))
+    n_init = rand(Poisson(μ_init))
+    θ_init = random_sources(n_init)
+    posterior, stats = nustar_rjmcmc(
+        observed_image, θ_init, Int(floor(SAMPLES/N_CHAINS)), BURN_IN_STEPS, covariance, JUMP_RATE, μ_init, HYPER_RATE, rng)
+    return posterior, stats
+end
+
 function write_sample_results(sources_truth, posterior, stats, θ_init=[])
     ground_truth = [sources_truth[j][i] for i in 1:length(sources_truth[1]), j in 1:length(sources_truth)]
     posterior_sources = vcat(posterior...)

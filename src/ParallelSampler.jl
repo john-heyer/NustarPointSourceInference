@@ -15,17 +15,7 @@ mean_image =  compose_mean_image(sources_truth)
 observed_image = sample_image(mean_image, 1)
 
 N_CHAINS = nworkers()
-println(N_CHAINS)
-
-function do_mcmc(rng)
-    μ_init = exp(rand(Uniform(log(N_MIN), log(N_MAX))))
-    n_init = rand(Poisson(μ_init))
-    θ_init = random_sources(n_init)
-    posterior, stats = nustar_rjmcmc(
-        observed_image, θ_init, Int(floor(SAMPLES/N_CHAINS)), BURN_IN_STEPS, covariance, JUMP_RATE, μ_init, HYPER_RATE, rng)
-    return posterior, stats
-end
-
+println("WORKERS: ", N_CHAINS)
 
 rngs = [MersenneTwister() for _ in 1:N_CHAINS]
 posterior, stats = collect(pmap(do_mcmc, rngs, on_error=identity))
