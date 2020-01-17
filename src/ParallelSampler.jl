@@ -15,6 +15,7 @@ mean_image =  compose_mean_image(sources_truth)
 observed_image = sample_image(mean_image, 1)
 
 N_CHAINS = nworkers()
+println(N_CHAINS)
 
 function do_mcmc(rng)
     μ_init = exp(rand(Uniform(log(N_MIN), log(N_MAX))))
