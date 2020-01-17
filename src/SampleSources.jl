@@ -29,15 +29,24 @@ function do_mcmc(rng)
     return posterior, stats
 end
 
-function write_sample_results(sources_truth, posterior, stats, θ_init=[])
+function write_sample_results(sources_truth, posterior, stats, θ_init)
     ground_truth = [sources_truth[j][i] for i in 1:length(sources_truth[1]), j in 1:length(sources_truth)]
     posterior_sources = vcat(posterior...)
     posterior_array = [posterior_sources[i][j] for j in 1:length(posterior_sources[1]), i in 1:length(posterior_sources)]
     posterior_data =  Dict("gt" => ground_truth, "posterior" => posterior_array)
-    if !isempty(θ_init)
-        sources_init = [θ_init[j][i] for i in 1:length(θ_init[1]), j in 1:length(θ_init)]
-        posterior_data["init"] = sources_init
+    sources_init = [θ_init[j][i] for i in 1:length(θ_init[1]), j in 1:length(θ_init)]
+    posterior_data["init"] = sources_init
+    npzwrite("posterior_data.npz", posterior_data) #, "init" => sources_init))
+    open("acceptance_stats.json", "w") do f
+        JSON.print(f, stats)
     end
+end
+
+function write_sample_results(sources_truth, posterior, stats)
+    ground_truth = [sources_truth[j][i] for i in 1:length(sources_truth[1]), j in 1:length(sources_truth)]
+    posterior_sources = vcat(posterior...)
+    posterior_array = [posterior_sources[i][j] for j in 1:length(posterior_sources[1]), i in 1:length(posterior_sources)]
+    posterior_data =  Dict("gt" => ground_truth, "posterior" => posterior_array)
     npzwrite("posterior_data.npz", posterior_data) #, "init" => sources_init))
     open("acceptance_stats.json", "w") do f
         JSON.print(f, stats)
