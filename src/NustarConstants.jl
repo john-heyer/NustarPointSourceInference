@@ -1,16 +1,4 @@
-module NustarConstants
 using Distributions
-
-export PSF_IMAGE_LENGTH
-export NUSTAR_IMAGE_LENGTH
-export NUSTAR_PIXEL_SIZE
-export PSF_PIXEL_SIZE
-export IM_SCALE
-export P_SOURCE_XY
-export P_SOURCE_B
-export N_MAX
-export N_MIN
-
 
 const N_MIN = 5
 const N_MAX = 30
@@ -27,6 +15,3 @@ const PSF_PIXEL_SIZE = 2.9793119397393605e-06
 const P_SOURCE_XY = Uniform(-1.1 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE, 1.1 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE)
 # TODO: Update this later
 const P_SOURCE_B = Uniform(exp(3), exp(7))
-
-
-end #  module

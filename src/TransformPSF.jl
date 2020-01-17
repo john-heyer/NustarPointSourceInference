@@ -1,5 +1,3 @@
-module TransformPSF
-
 using NPZ
 using Images
 using Plots
@@ -8,7 +6,6 @@ using CoordinateTransformations
 using Distributions, Random
 
 include("NustarConstants.jl")
-using .NustarConstants
 
 psf = npzread("psf_9.npy")
 
@@ -128,4 +125,3 @@ end
 # display(plt_n)
 # display(plt_s)
 # println()
-end # module

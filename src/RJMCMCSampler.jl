@@ -1,13 +1,8 @@
-module RJMCMCSampler
-
 using Distributions, Random, SpecialFunctions
 using DataStructures
 using NPZ
 
-export Move
-
 include("NustarConstants.jl")
-using .NustarConstants
 include("TransformPSF.jl")
 
 
@@ -41,7 +36,7 @@ end
 
 
 function log_likelihood(θ, observed_image)
-    model_rate_image = TransformPSF.compose_mean_image(θ)
+    model_rate_image = compose_mean_image(θ)
     # println("max rate count: ", maximum(model_rate_image))
     lg_likelihood = sum(
         [poisson_log_prob(model_rate_image[i], observed_image[i])
@@ -267,8 +262,8 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
             #         println("normal zero")
             #         zero = [sample_new[j][i] for i in 1:length(sample_new[1]), j in 1:length(sample_new)]
             #         current = [head[j][i] for i in 1:length(head[1]), j in 1:length(head)]
-            #         new_map = TransformPSF.compose_mean_image(sample_new)
-            #         old_map = TransformPSF.compose_mean_image(head)
+            #         new_map = compose_mean_image(sample_new)
+            #         old_map = compose_mean_image(head)
             #         npzwrite("zero_move.npz", Dict("new" => zero, "head" => current, "n_map" => new_map, "o_map" => old_map, "sample" => observed_image))
             #         println("done writing")
             #     end
@@ -316,6 +311,3 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
     )
     return chain, stats
 end
-
-
-end  # module
