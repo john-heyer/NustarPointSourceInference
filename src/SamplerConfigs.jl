@@ -1,9 +1,9 @@
 include("NustarConstants.jl")
 
 N_SOURCES_TRUTH = 10
-VAR_X, VAR_Y, VAR_B = (PSF_PIXEL_SIZE * 5)^2, (PSF_PIXEL_SIZE * 5)^2, .05^2
-COVARIANCE = [VAR_X 0.0 0.0; 0.0 VAR_Y 0.0; 0.0 0.0 VAR_B]
-SAMPLES = 2
-BURN_IN_STEPS = 0
-JUMP_RATE = 0.1
-HYPER_RATE = .02
+const VAR_X, VAR_Y, VAR_B = (PSF_PIXEL_SIZE * 5)^2, (PSF_PIXEL_SIZE * 5)^2, .05^2
+const COVARIANCE = [VAR_X 0.0 0.0; 0.0 VAR_Y 0.0; 0.0 0.0 VAR_B]
+const SAMPLES = 2
+const BURN_IN_STEPS = 0
+const JUMP_RATE = 0.1
+const HYPER_RATE = .02
