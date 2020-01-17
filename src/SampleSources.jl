@@ -20,7 +20,8 @@ function random_sources(n_sources)
     return [(sources_x[i], sources_y[i], log(sources_b[i])) for i in 1:n_sources]
 end
 
-function do_mcmc(rng)
+function do_mcmc(img_and_rng)
+    observed_image, rng = img_and_rng
     μ_init = exp(rand(Uniform(log(N_MIN), log(N_MAX))))
     n_init = rand(Poisson(μ_init))
     θ_init = random_sources(n_init)
