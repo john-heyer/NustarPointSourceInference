@@ -1,5 +1,5 @@
 using Distributed
-addprocs(2)
+addprocs()
 
 @everywhere begin
     using Pkg
@@ -55,6 +55,10 @@ observed_image = sample_image(mean_image, 1)
 println("WORKERS: ", N_CHAINS)
 
 rngs = [(observed_image, MersenneTwister()) for _ in 1:N_CHAINS]
-posterior, stats = collect(pmap(do_mcmc, rngs))
+@time chains = pmap(do_mcmc, rngs)
+println("NUMBER OF CHAINS: ", length(chains))
+posterior, stats = collect(chains)
 
+println("finished sampling")
 write_sample_results(sources_truth, posterior, stats)
+println("DONE")

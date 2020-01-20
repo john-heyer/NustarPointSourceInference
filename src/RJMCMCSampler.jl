@@ -9,7 +9,7 @@ include("TransformPSF.jl")
 @enum Move normal_move split_move merge_move birth_move death_move hyper_move
 
 function poisson_log_prob(λ, k)
-    if λ == 0
+    if λ <= 0
         println("zero lambda")
         return -Inf
     end
