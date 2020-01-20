@@ -38,9 +38,7 @@ function collect(results)
         "acceptance rate" => accepted/proposals,
         "stats by move type" => move_stats,
         "n_sources_counts" => n_sources_counts,
-        "mu_min" => minimum(mus),
-        "mu_max" => maximum(mus),
-        "mu_avg" => mean(mus)
+        "mus" => mus
     )
     return combined_chain, stats_out
 end

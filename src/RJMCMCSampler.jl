@@ -288,12 +288,10 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
             μ = μ_new
             current_lg_l, current_lg_p = sample_lg_l, sample_lg_p
             accepted += 1
-            if move_type == hyper_move
-                push!(mus, μ)
-            end
         end
         if i > burn_in_steps
             push!(chain, head)
+            push!(mus, μ)
         end
         record_move!(move_stats, move_type, A, accept)
     end

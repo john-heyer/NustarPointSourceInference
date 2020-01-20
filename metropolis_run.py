@@ -26,16 +26,11 @@ with open(acceptance_file, "r") as f:
 
 move_stats = stats.pop("stats by move type")
 n_sources_counts = stats.pop('n_sources_counts')
+mus = stats.pop("mus")
 
 print("\n======acceptance stats======")
 for stat in stats:
-	if stat == "mus":
-		mus = stats[stat]
-		print("mu_min", ":", np.min(mus))
-		print("mu_max", ":", np.max(mus))
-		print("mu_avg", ":", np.mean(mus))
-	else:
-		print(stat, ":", stats[stat])
+	print(stat, ":", stats[stat])
 
 for move in move_stats:
 	print(move)
@@ -54,12 +49,12 @@ print("===========================\n")
 # print(ground_truth.shape)
 # print(posterior.shape)
 
-print(max(ground_truth[0]), min(ground_truth[0]))
-print(max(ground_truth[1]), min(ground_truth[1]))
-print(max(ground_truth[2]), min(ground_truth[2]))
-print(max(posterior[0]), min(posterior[0]))
-print(max(posterior[1]), min(posterior[1]))
-print(max(posterior[2]), min(posterior[2]))
+# print(max(ground_truth[0]), min(ground_truth[0]))
+# print(max(ground_truth[1]), min(ground_truth[1]))
+# print(max(ground_truth[2]), min(ground_truth[2]))
+# print(max(posterior[0]), min(posterior[0]))
+# print(max(posterior[1]), min(posterior[1]))
+# print(max(posterior[2]), min(posterior[2]))
 
 
 gt_x, gt_y, gt_b = ground_truth[0]/PSF_PIXEL_SIZE, ground_truth[1]/PSF_PIXEL_SIZE, np.exp(ground_truth[2])
@@ -77,6 +72,19 @@ if init is not False:
 	plt.scatter(x=i_x, y=i_y, s=10, c='r', edgecolors='black')
 plt.gca().add_patch(Rectangle((window_min,window_min),2*window_max,2*window_max,linewidth=.5,edgecolor='r',facecolor='none'))
 plt.gca().add_patch(Rectangle((1.1*window_min,1.1*window_min),1.1*2*window_max,1.1*2*window_max,linewidth=.5,edgecolor='black',facecolor='none'))
+plt.show()
+
+plt.hist(x=mus, bins=25, color='y', edgecolor='k')
+plt.title("Mu Posterior")
+plt.show()
+
+
+source_count_tuples = sorted(list(zip(n_sources_counts.keys(), n_sources_counts.values())), key=lambda tup: int(tup[0]))
+print(source_count_tuples)
+n_sources = [tup[0]for tup in source_count_tuples]
+count = [tup[1] for tup in source_count_tuples]
+plt.bar(n_sources, count, color='g', edgecolor='k')
+plt.title("N Posterior")
 plt.show()
 
 # X = np.array([p_x, p_y]).T
