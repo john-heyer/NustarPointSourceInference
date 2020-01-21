@@ -17,6 +17,7 @@ function collect(results)
     accepted = 0
     n_sources_counts = Dict{Int, Int}()
     mus = []
+    acceptance_rates = []
     for stats in stats_dicts
         proposals += stats["proposals"]
         accepted += stats["accepted"]
@@ -30,6 +31,7 @@ function collect(results)
         for (sources, counts) in stats["n_sources_counts"]
             n_sources_counts[sources] = get(n_sources_counts, sources, 0) + counts
         end
+        push!(acceptance_rates, stats["acceptance_rates"])
     end
 
     stats_out = OrderedDict(
@@ -38,7 +40,8 @@ function collect(results)
         "acceptance rate" => accepted/proposals,
         "stats by move type" => move_stats,
         "n_sources_counts" => n_sources_counts,
-        "mus" => mus
+        "mus" => mus,
+        "acceptance_rates" => mean(acceptance_rates)
     )
     return combined_chain, stats_out
 end

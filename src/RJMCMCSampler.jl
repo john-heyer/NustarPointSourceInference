@@ -241,9 +241,13 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
     mus = [μ]
     current_lg_l = log_likelihood(head, observed_image)
     current_lg_p = log_prior(head, μ)
+    accepted_recent = 0
+    acceptance_rates = []
     for i in 1:(burn_in_steps + samples)
-        if (i-1) % 100 == 0
+        if (i-1) % 1000 == 0
             println("Iteration: ", i-1)
+            push!(acceptance_rates, accepted_recent/1000)
+            accepted_recent = 0
         end
         move_type = get_move_type(jump_rate, hyper_rate, rng)
         sample_new, proposal_ratio, μ_new = proposal(head, μ, move_type, covariance, rng)
@@ -288,6 +292,7 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
             μ = μ_new
             current_lg_l, current_lg_p = sample_lg_l, sample_lg_p
             accepted += 1
+            accepted_recent += 1
         end
         if i > burn_in_steps
             push!(chain, head)
@@ -305,7 +310,8 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
         "acceptance rate" => accepted / (burn_in_steps + samples),
         "stats by move type" => move_stats,
         "n_sources_counts" => n_sources_counts,
-        "mus" => mus
+        "mus" => mus,
+        "acceptance_rates" => acceptance_rates
     )
     return chain, stats
 end
