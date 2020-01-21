@@ -232,6 +232,8 @@ function record_move!(move_stats, move_type, A, accept)
     move_stats[move_type]["zero A moves"] += zero_A
 end
 
+TREE HERE
+
 function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covariance, jump_rate, μ_init, hyper_rate, rng)
     chain = Array{Tuple{Float64,Float64,Float64},1}[]
     head = θ_init
