@@ -244,8 +244,8 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
     accepted_recent = 0
     acceptance_rates = []
     for i in 1:(burn_in_steps + samples)
-        if (i-1) % 1000 == 0
-            println("Iteration: ", i-1)
+        if (i) % 1000 == 0
+            println("Iteration: ", i)
             push!(acceptance_rates, accepted_recent/1000)
             accepted_recent = 0
         end
