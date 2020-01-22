@@ -26,7 +26,12 @@ with open(acceptance_file, "r") as f:
 
 move_stats = stats.pop("stats by move type")
 n_sources_counts = stats.pop('n_sources_counts')
-mus = stats.pop("mus")
+has_mus = "mus" in stats
+if has_mus:
+	mus = stats.pop("mus")
+a_rates = "acceptance_rates" in stats
+if a_rates:
+	acceptance_rates = stats.pop("acceptance_rates")
 
 print("\n======acceptance stats======")
 for stat in stats:
@@ -46,8 +51,8 @@ for count in n_sources_counts:
 	print(count, ":", n_sources_counts[count])
 print("===========================\n")
 
-# print(ground_truth.shape)
-# print(posterior.shape)
+print(ground_truth.shape)
+print(posterior.shape)
 
 # print(max(ground_truth[0]), min(ground_truth[0]))
 # print(max(ground_truth[1]), min(ground_truth[1]))
@@ -66,7 +71,7 @@ p_x, p_y, p_b = posterior[0]/PSF_PIXEL_SIZE, posterior[1]/PSF_PIXEL_SIZE, np.exp
 
 # print(p_x.shape, p_y.shape, p_b.shape)
 
-plt.hist2d(x=p_x, y=p_y, range=[[-1200, 1200], [-1200, 1200]], bins=128)#, weights=p_b)
+plt.hist2d(x=p_x, y=p_y, range=[[-1200, 1200], [-1200, 1200]], bins=128, weights=p_b)
 plt.scatter(x=gt_x, y=gt_y, c=gt_b, s=10, edgecolors='black')
 if init is not False:
 	plt.scatter(x=i_x, y=i_y, s=10, c='r', edgecolors='black')
@@ -74,18 +79,25 @@ plt.gca().add_patch(Rectangle((window_min,window_min),2*window_max,2*window_max,
 plt.gca().add_patch(Rectangle((1.1*window_min,1.1*window_min),1.1*2*window_max,1.1*2*window_max,linewidth=.5,edgecolor='black',facecolor='none'))
 plt.show()
 
-plt.hist(x=mus, bins=25, color='y', edgecolor='k')
-plt.title("Mu Posterior")
-plt.show()
+if has_mus:
+	plt.hist(x=mus, bins=25, color='y', edgecolor='k')
+	plt.title("Mu Posterior")
+	plt.show()
 
 
 source_count_tuples = sorted(list(zip(n_sources_counts.keys(), n_sources_counts.values())), key=lambda tup: int(tup[0]))
-print(source_count_tuples)
-n_sources = [tup[0]for tup in source_count_tuples]
+n_sources = [int(tup[0])for tup in source_count_tuples]
 count = [tup[1] for tup in source_count_tuples]
 plt.bar(n_sources, count, color='g', edgecolor='k')
 plt.title("N Posterior")
+plt.axvline(len(gt_x), color='k', linestyle='dashed', linewidth=1)
+print(len(gt_x))
 plt.show()
+
+if a_rates:
+	plt.scatter(x=[(i+1)*1000 for i in range(len(acceptance_rates))], y=acceptance_rates)
+	plt.title("Acceptance_rate per 1000 iterations")
+	plt.show()
 
 # X = np.array([p_x, p_y]).T
 # init = np.array([gt_x, gt_y]).T

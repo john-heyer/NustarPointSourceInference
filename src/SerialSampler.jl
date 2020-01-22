@@ -10,7 +10,7 @@ println("Sampling")
 μ_init = exp(rand(Uniform(log(N_MIN), log(N_MAX))))
 n_init = rand(Poisson(μ_init))
 θ_init = random_sources(n_init)
-posterior, stats = nustar_rjmcmc(
+@time posterior, stats = nustar_rjmcmc(
     observed_image, θ_init, SAMPLES, BURN_IN_STEPS, COVARIANCE,
     JUMP_RATE, μ_init, HYPER_RATE, MersenneTwister()
 )
