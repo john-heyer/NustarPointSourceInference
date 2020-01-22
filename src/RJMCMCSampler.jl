@@ -6,6 +6,18 @@ include("NustarConstants.jl")
 include("TransformPSF.jl")
 
 
+mutable struct WindowTree
+    x_min::Float64
+    x_max::Float64
+    y_min::Float64
+    y_max::Float64
+    is_leaf::Bool
+    split_x::Bool
+    above::Union{WindowTree, Nothing}
+    below::Union{WindowTree, Nothing}
+    source::Union{Tuple{Float64, Float64, Float64}, Nothing}
+end
+
 @enum Move normal_move split_move merge_move birth_move death_move hyper_move
 
 function poisson_log_prob(λ, k)
@@ -46,6 +58,64 @@ function log_likelihood(θ, observed_image)
     return lg_likelihood
 end
 
+function construct_tree(head)
+    function build_tree(root, sorted_x, sorted_y)
+        if length(sorted_x) == 1
+            root.is_leaf = true
+            root.source = sorted_x[1]
+        else
+            if root.split_x
+                m = Int(floor(length(sorted_x)/2))
+                x_bound = (sorted_x[m][1] + sorted_x[m+1][1]) / 2
+                above = WindowTree(x_bound, root.x_max, root.y_min, root.y_max, false, !root.split_x, nothing, nothing, nothing)
+                below = WindowTree(root.x_min, x_bound, root.y_min, root.y_max, false, !root.split_x, nothing, nothing, nothing)
+                root.above = above
+                root.below = below
+                sorted_x_below, sorted_x_above = sorted_x[1:m], sorted_x[m+1:length(sorted_x)]
+                sorted_y_below = [source for source in sorted_y if source[1] < x_bound]
+                sorted_y_above = [source for source in sorted_y if source[1] > x_bound]
+                build_tree(above, sorted_x_above, sorted_y_above);
+                build_tree(below, sorted_x_below, sorted_y_below);
+            else
+                m = Int(floor(length(sorted_y)/2))
+                y_bound = (sorted_y[m][2] + sorted_y[m+1][2]) / 2
+                above = WindowTree(root.x_min, root.x_max, y_bound, root.y_max, false, !root.split_x, nothing, nothing, nothing)
+                below = WindowTree(root.x_min, root.x_max, root.y_min, y_bound, false, !root.split_x, nothing, nothing, nothing)
+                root.above = above
+                root.below = below
+                sorted_y_below, sorted_y_above = sorted_y[1:m], sorted_y[m+1:length(sorted_y)]
+                sorted_x_below = [source for source in sorted_x if source[2] < y_bound]
+                sorted_x_above = [source for source in sorted_x if source[2] > y_bound]
+                build_tree(above, sorted_x_above, sorted_y_above);
+                build_tree(below, sorted_x_below, sorted_y_below);
+            end
+        end
+    end
+
+    sorted_x = sort(head, by=first)
+    sorted_y = sort(head, by=f2(source)=source[2])
+    root = WindowTree(XY_MIN, XY_MAX, XY_MIN, XY_MAX, false, true, nothing, nothing, nothing)
+    build_tree(root, sorted_x, sorted_y)
+    return root
+end
+
+function tree_split(head, split_rate, rng)
+    root = construct_tree(head)
+    new_sources = []
+    function split(tree)
+        if tree.is_leaf && rand(Uniform(0, 1)) < split_rate
+            source = tree.source
+            x_new = rand(TriangularDist(tree.x_min, tree.x_max, source[1]))
+            y_new = rand(TriangularDist(tree.y_min, tree.y_max, source[2]))
+            # TODO: Add to tree and try more splits?
+            source_new = (x_new, y_new)
+            push!(new_sources, source_new)
+        else
+            split(tree.above);
+            split(tree.below);
+    split(tree)
+    return new_sources
+end
 
 function split(head, covariance, rng)
     point_index = rand(rng, 1:length(head))
@@ -232,7 +302,6 @@ function record_move!(move_stats, move_type, A, accept)
     move_stats[move_type]["zero A moves"] += zero_A
 end
 
-TREE HERE
 
 function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covariance, jump_rate, μ_init, hyper_rate, rng)
     chain = Array{Tuple{Float64,Float64,Float64},1}[]
