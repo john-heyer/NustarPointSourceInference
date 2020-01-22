@@ -4,8 +4,18 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import sys
 import os
+import argparse
 
-data_dir = os.path.join(os.getcwd(), sys.argv[1])
+parser = argparse.ArgumentParser(description='Visualize sampler results')
+parser.add_argument('--last', action='store_true',
+                   help='show last 2*N_gt sources in run')
+parser.add_argument('stats_dir',
+                   help='relative path to stats directory')
+
+args = parser.parse_args()
+last = args.last
+
+data_dir = os.path.join(os.getcwd(), args.stats_dir)
 for file in os.listdir(data_dir):
 	if ".npz" in file:
 		posterior_file = os.path.join(data_dir, file)
@@ -62,6 +72,10 @@ print(posterior.shape)
 # print(max(posterior[2]), min(posterior[2]))
 
 
+# TO PRINT GT
+# gt = [(ground_truth[0][i], ground_truth[1][i], ground_truth[2][i]) for i in range(len(ground_truth[0]))]
+# print(gt)
+
 gt_x, gt_y, gt_b = ground_truth[0]/PSF_PIXEL_SIZE, ground_truth[1]/PSF_PIXEL_SIZE, np.exp(ground_truth[2])
 if init is not False:
 	i_x, i_y, i_b = init[0]/PSF_PIXEL_SIZE, init[1]/PSF_PIXEL_SIZE, np.exp(init[2])
@@ -69,10 +83,13 @@ if init is not False:
 p_x, p_y, p_b = posterior[0]/PSF_PIXEL_SIZE, posterior[1]/PSF_PIXEL_SIZE, np.exp(posterior[2])
 
 
-# print(p_x.shape, p_y.shape, p_b.shape)
+last_n_x, last_n_y, last_n_b = p_x[len(p_x)-2*len(gt_x):len(p_x)], p_y[len(p_x)-2*len(gt_x):len(p_x)], p_b[len(p_x)-2*len(gt_x):len(p_x)]
+print("length", len(last_n_x))
 
-plt.hist2d(x=p_x, y=p_y, range=[[-1200, 1200], [-1200, 1200]], bins=128, weights=p_b)
+plt.hist2d(x=p_x, y=p_y, range=[[-1200, 1200], [-1200, 1200]], bins=128)#, weights=p_b)
 plt.scatter(x=gt_x, y=gt_y, c=gt_b, s=10, edgecolors='black')
+if last:
+	plt.scatter(x=last_n_x, y=last_n_y, c='r', marker='+')
 if init is not False:
 	plt.scatter(x=i_x, y=i_y, s=10, c='r', edgecolors='black')
 plt.gca().add_patch(Rectangle((window_min,window_min),2*window_max,2*window_max,linewidth=.5,edgecolor='r',facecolor='none'))

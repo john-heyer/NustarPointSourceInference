@@ -1,7 +1,7 @@
 using NPZ
 # using Images
 # using Plots
-using ImageTransformations
+# using ImageTransformations
 # using CoordinateTransformations
 using Distributions, Random
 
@@ -22,7 +22,7 @@ function anneal!(psf, x_loc_pixels, y_loc_pixels)
                 ((psf_half_length - i) - y_loc_pixels)^2 +
                 ((psf_half_length - j) - x_loc_pixels)^2
             )
-            psf[i, j] += 1/sqrt((1+d^2))
+            psf[i, j] += 1/(1+.1d^3)
         end
     end
 end
@@ -90,29 +90,26 @@ function sample_image(mean_image, t)
     return [rand(Poisson(convert(Float64, t*λ))) for λ in mean_image]
 end
 
-# tpsf = apply_psf_transformation(20 * NUSTAR_PIXEL_SIZE, 20* NUSTAR_PIXEL_SIZE, 1)
-
-# # TODO: Fix resizing
-# tpsfs = [
-#     apply_psf_transformation((r*PSF_PIXEL_SIZE, θ, 1))
-#     for θ in range(0, 2*pi, length=16)
-#     for r in range(0, length=20)
-# ]
-# s = [sum(t) for t in tpsfs]
-# println(s[1:20])
-# println("shape after")
-# println(size(tpsf))
-# println("sum after")
-# println(sum(tpsf))
-#
-# println("displaying plot")
-# plt_0 = heatmap(psf)
+# tpsf = apply_psf_transformation(0 * NUSTAR_PIXEL_SIZE, 0* NUSTAR_PIXEL_SIZE, 0)
 # plt_n = heatmap(tpsf)
-#
-# sample = sample_image(tpsf, 1)
-# plt_s = heatmap(sample)
-
-# display(plt_0)
 # display(plt_n)
-# display(plt_s)
-# println()
+# # TODO: Fix resizing
+# function what(tpsf)
+#     max_v = -1
+#     println(max_v)
+#     max_i = (0, 0)
+#     for j in 1:size(tpsf, 2)
+#         for i in 1:size(tpsf, 1)
+#             if tpsf[i, j] > max_v
+#                 max_v = tpsf[i, j]
+#                 max_i = (i, j)
+#             end
+#         end
+#     end
+#     println(max_v)
+#     println(max_i)
+# end
+# what(tpsf)
+# println(sum(tpsf))
+# radius = tpsf[27:37, 27:37]
+# println(sum(radius))

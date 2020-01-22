@@ -48,7 +48,7 @@ function write_sample_results(sources_truth, posterior, stats)
     posterior_sources = vcat(posterior...)
     posterior_array = [posterior_sources[i][j] for j in 1:length(posterior_sources[1]), i in 1:length(posterior_sources)]
     posterior_data =  Dict("gt" => ground_truth, "posterior" => posterior_array)
-    npzwrite("posterior_data.npz", posterior_data) #, "init" => sources_init))
+    npzwrite("posterior_data.npz", posterior_data)
     open("acceptance_stats.json", "w") do f
         JSON.print(f, stats)
     end
