@@ -102,11 +102,14 @@ end
 function tree_split(head, split_rate, rng)
     root = construct_tree(head)
     new_sources = []
+    p_split = 1
     function split(tree)
-        if tree.is_leaf && rand(Uniform(0, 1)) < split_rate
+        if tree.is_leaf && rand(Uniform(0, 1), rng) < split_rate
             source = tree.source
-            x_new = rand(TriangularDist(tree.x_min, tree.x_max, source[1]))
-            y_new = rand(TriangularDist(tree.y_min, tree.y_max, source[2]))
+            x_dist = TriangularDist(tree.x_min, tree.x_max, source[1])
+            y_dist = TriangularDist(tree.y_min, tree.y_max, source[2])
+            x_new = rand(x_dist, rng)
+            y_new = rand(y_dist, rng)
             # TODO: Add to tree and try more splits?
             source_new = (x_new, y_new)
             push!(new_sources, source_new)
