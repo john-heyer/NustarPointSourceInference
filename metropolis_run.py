@@ -7,7 +7,7 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser(description='Visualize sampler results')
-parser.add_argument('--last', action='store_true',
+parser.add_argument('-l', '--last', action='store_true',
                    help='show last 2*N_gt sources in run')
 parser.add_argument('stats_dir',
                    help='relative path to stats directory')
