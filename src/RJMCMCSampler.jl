@@ -58,6 +58,7 @@ function log_likelihood(θ, observed_image)
     return lg_likelihood
 end
 
+<<<<<<< HEAD
 function construct_tree(head)
     function build_tree(root, sorted_x, sorted_y)
         if length(sorted_x) == 1
@@ -118,6 +119,9 @@ function tree_split(head, split_rate, rng)
             split(tree.below);
     split(tree)
     return new_sources
+=======
+function nothing!()
+>>>>>>> test rebase
 end
 
 function split(head, covariance, rng)
