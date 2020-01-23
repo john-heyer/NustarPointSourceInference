@@ -46,6 +46,8 @@ function log_likelihood(θ, observed_image)
     return lg_likelihood
 end
 
+function nothing!()
+end
 
 function split(head, covariance, rng)
     point_index = rand(rng, 1:length(head))
