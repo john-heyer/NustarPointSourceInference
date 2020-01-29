@@ -47,7 +47,7 @@ function collect(results)
 end
 
 println("running")
-sources_truth = random_sources(N_SOURCES_TRUTH)
+sources_truth = random_sources(N_SOURCES_TRUTH, TRUTH_DIST_B)
 println("SAMPLES: ", SAMPLES)
 
 mean_image =  compose_mean_image(sources_truth)

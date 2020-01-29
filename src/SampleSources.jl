@@ -20,6 +20,15 @@ function random_sources(n_sources)
     return [(sources_x[i], sources_y[i], log(sources_b[i])) for i in 1:n_sources]
 end
 
+
+function random_sources(n_sources, brighness_dist)
+    sources_x = rand(P_SOURCE_XY, n_sources)
+    sources_y = rand(P_SOURCE_XY, n_sources)
+    sources_b = rand(brighness_dist, n_sources)
+    return [(sources_x[i], sources_y[i], log(sources_b[i])) for i in 1:n_sources]
+end
+
+
 function do_mcmc(img_and_rng)
     observed_image, rng = img_and_rng
     μ_init = exp(rand(Uniform(log(N_MIN), log(N_MAX))))
