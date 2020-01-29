@@ -6,7 +6,19 @@ include("NustarConstants.jl")
 include("TransformPSF.jl")
 
 
-@enum Move normal_move split_move merge_move birth_move death_move hyper_move
+mutable struct WindowTree
+    x_min::Float64
+    x_max::Float64
+    y_min::Float64
+    y_max::Float64
+    is_leaf::Bool
+    split_x::Bool
+    above::Union{WindowTree, Nothing}
+    below::Union{WindowTree, Nothing}
+    source::Union{Tuple{Float64, Float64, Float64}, Nothing}
+end
+
+@enum Move normal_move split_move merge_move birth_move death_move hyper_move tree_split_move tree_merge_move
 
 function poisson_log_prob(λ, k)
     if λ <= 0
@@ -46,7 +58,186 @@ function log_likelihood(θ, observed_image)
     return lg_likelihood
 end
 
-function nothing!()
+
+function construct_tree(head)
+    function build_tree!(root, sources)
+        if length(sources) == 1
+            root.is_leaf = true
+            root.source = sources[1]
+        else
+            if root.split_x
+                center_of_bx = sum([source[1]*exp(source[3]) for source in sources])/sum([exp(source[3]) for source in sources])
+                above = WindowTree(center_of_bx, root.x_max, root.y_min, root.y_max, false, !root.split_x, nothing, nothing, nothing)
+                below = WindowTree(root.x_min, center_of_bx, root.y_min, root.y_max, false, !root.split_x, nothing, nothing, nothing)
+                root.above = above
+                root.below = below
+                sources_above = [source for source in sources if source[1] > center_of_bx]
+                sources_below = [source for source in sources if source[1] < center_of_bx]
+                build_tree!(above, sources_above)
+                build_tree!(below, sources_below)
+            else
+                center_of_by = sum([source[2]*exp(source[3]) for source in sources])/sum([exp(source[3]) for source in sources])
+                above = WindowTree(root.x_min, root.x_max, center_of_by, root.y_max, false, !root.split_x, nothing, nothing, nothing)
+                below = WindowTree(root.x_min, root.x_max, root.y_min, center_of_by, false, !root.split_x, nothing, nothing, nothing)
+                root.above = above
+                root.below = below
+                sources_above = [source for source in sources if source[2] > center_of_by]
+                sources_below = [source for source in sources if source[2] < center_of_by]
+                build_tree!(above, sources_above)
+                build_tree!(below, sources_below)
+            end
+        end
+    end
+    root = WindowTree(XY_MIN, XY_MAX, XY_MIN, XY_MAX, false, true, nothing, nothing, nothing)
+    build_tree!(root, head)
+    return root
+end
+
+function intersection_dist(tree, mid, ray_origin, ray_vec)
+    # Solve ray_origin + t * ray_vec = x/y to get intersection points
+    t_x_min = (tree.x_min - ray_origin[1]) / ray_vec[1]
+    t_x_max = (tree.x_max - ray_origin[1]) / ray_vec[1]
+    t_y_min = (tree.y_min - ray_origin[2]) / ray_vec[2]
+    t_y_max = (tree.y_max - ray_origin[2]) / ray_vec[2]
+    potential = [t_x_min, t_x_max, t_y_min, t_y_max]
+    t_intersect = minimum([t for t in potential if t > 0])
+    x_intersect = ray_origin[1] + t_intersect * ray_vec[1]
+    x_min, x_max = min(mid[1], x_intersect), max(mid[1], x_intersect)
+    return Uniform(x_min, x_max)
+end
+
+
+function tree_split(head, split_rate, rng)
+    root = construct_tree(head)
+    new_sources = []
+    to_remove = Set()
+    p_split = 1
+    det_J = 1
+    splt = 0
+    function split(tree)
+        if !isnothing(tree)
+            if tree.is_leaf && rand(rng, Uniform(0, 1)) < (split_rate / 2)
+                source = tree.source
+                dist_x, dist_y = Uniform(tree.x_min, tree.x_max), Uniform(source[2], tree.y_max)
+                qx, qy = rand(rng, dist_x), rand(rng, dist_y)
+                ray_origin = [qx, qy]
+                mid = [source[1], source[2]]
+                ray_vec = mid - ray_origin
+                source_2_dist = intersection_dist(tree, mid, ray_origin, ray_vec)
+                source_2_x = rand(rng, source_2_dist)
+                t_x = (source_2_x - mid[1])/ray_vec[1]
+                source_2_y = mid[2] + ray_vec[2] * t_x
+                b = exp(source[3])
+                x_diff = abs(qx - source_2_x)
+                b_1 = b * (1 - abs(qx - source[1]) / abs(qx - source_2_x))
+                b_2 = b * (1 - abs(source_2_x - source[1]) / abs(qx - source_2_x))
+                source_1 = (qx, qy, log(b_2))
+                source_2 = (source_2_x, source_2_y, log(b_2))
+                # TODO: Add to tree and try more splits?
+                push!(new_sources, source_1, source_2)
+                push!(to_remove, source)
+                p_split *= pdf(dist_x, qx) * pdf(dist_y, qy) * pdf(source_2_dist, source_2_x) * 1/2
+                det_J *= abs(b / (qx - source[1]))
+                splt += 1
+                # println("split coordinate check: ")
+                # println("source split: ")
+                # println(source[1])
+                # println(source[2])
+                # println(exp(source[3]))
+                # println("source new 1: ")
+                # println(qx)
+                # println(qy)
+                # println(b_1)
+                # println("source new 2: ")
+                # println(source_2_x)
+                # println(source_2_y)
+                # println(b_2)
+                # println("bounds: ")
+                # println(tree.x_min)
+                # println(tree.x_max)
+                # println(tree.y_min)
+                # println(tree.y_max)
+                # println("x2 bounds: ")
+                # println(source_2_dist.a)
+                # println(source_2_dist.b)
+                # println()
+            else
+                split(tree.above)
+                split(tree.below)
+            end
+        end
+    end
+    split(root)
+    sample_new = [source for source in head if !(source in to_remove)]
+    sample_new = vcat(sample_new, new_sources)
+    return sample_new, 1.0/p_split * det_J
+end
+
+function tree_merge(head, split_rate, rng)
+    root = construct_tree(head)
+    new_sources = []
+    to_remove = Set()
+    p_split = 1
+    det_J = 1
+    merged = 0
+    p_source_1 = 1
+    p_source_2 = 1
+    function merge(tree)
+        if !tree.is_leaf
+            if tree.above.is_leaf && tree.below.is_leaf && rand(rng, Uniform(0, 1)) < split_rate
+                source_above, source_below = tree.above.source, tree.below.source
+                b_1, b_2 = exp(source_above[3]), exp(source_below[3])
+                source_new_x = (source_above[1]*b_1 + source_below[1]*b_2)/(b_1 + b_2)
+                source_new_y = (source_above[2]*b_1 + source_below[2]*b_2)/(b_1 + b_2)
+                source_new_b = log(b_1 + b_2)
+                source_2, source_1 = sort([source_above, source_below], by=f(x)=x[2])
+                p_source_1 = pdf(Uniform(tree.x_min, tree.x_max), source_1[1]) * pdf(Uniform(source_new_y, tree.y_max), source_1[2])
+                ray_origin = [source_1[1], source_1[2]]
+                mid = [source_new_x, source_new_y]
+                ray_vec = mid - ray_origin
+                source_2_dist = intersection_dist(tree, mid, ray_origin, ray_vec)
+                p_source_2 = pdf(source_2_dist, source_2[1])
+                # TODO: Add to tree and try more splits?
+                source_new = (source_new_x, source_new_y, source_new_b)
+                push!(new_sources, source_new)
+                push!(to_remove, source_above, source_below)
+                p_split *= p_source_1 * p_source_2 * 1/2
+                det_J *= abs(exp(source_new_b) / (source_1[1] - source_new_x))
+                merged += 1
+                # println()
+                # println("merge coordinate check: ")
+                # println("source split: ")
+                # println(source_new_x)
+                # println(source_new_y)
+                # println(exp(source_new_b))
+                # println("source new 1: ")
+                # println(source_1[1])
+                # println(source_1[2])
+                # println(exp(source_1[3]))
+                # println("source new 2: ")
+                # println(source_2[1])
+                # println(source_2[2])
+                # println(exp(source_2[3]))
+                # println("bounds: ")
+                # println(tree.x_min)
+                # println(tree.x_max)
+                # println(tree.y_min)
+                # println(tree.y_max)
+                # println("x2 bounds: ")
+                # println(source_2_dist.a)
+                # println(source_2_dist.b)
+                # println()
+
+            else
+                merge(tree.above)
+                merge(tree.below)
+            end
+        end
+    end
+    merge(root)
+    sample_new = [source for source in head if !(source in to_remove)]
+    sample_new = vcat(sample_new, new_sources)
+    return sample_new, p_split * 1.0/det_J
 end
 
 function split(head, covariance, rng)
@@ -124,7 +315,7 @@ function death(head, rng)
 end
 
 
-function jump_proposal(head, move_type, covariance, rng)
+function jump_proposal(head, move_type, covariance, split_rate, rng)
     if move_type == birth_move
         sample_new, proposal_ratio = birth(head, rng)
     elseif move_type == death_move
@@ -133,6 +324,10 @@ function jump_proposal(head, move_type, covariance, rng)
         sample_new, proposal_ratio = split(head, covariance, rng)
     elseif move_type == merge_move
         sample_new, proposal_ratio = merge(head, covariance, rng)
+    elseif move_type == tree_split_move
+        sample_new, proposal_ratio = tree_split(head, split_rate, rng)
+    elseif move_type == tree_merge_move
+        sample_new, proposal_ratio = tree_merge(head, split_rate, rng)
     end
     return sample_new, proposal_ratio
 end
@@ -155,15 +350,31 @@ function hyper_proposal(μ, rng)
     return μ + rand(rng, Normal(0.0, 2))
 end
 
-function proposal(head, μ, move_type, covariance, rng)
+function proposal(head, μ, move_type, covariance, split_rate, rng)
     if move_type == normal_move
         sample_new, proposal_rate = normal_proposal(head, covariance, rng)
         return sample_new, proposal_rate, μ
     elseif move_type == hyper_move
         return head, 1.0, hyper_proposal(μ, rng)
     else
-        sample_new, proposal_rate = jump_proposal(head, move_type, covariance, rng)
+        sample_new, proposal_rate = jump_proposal(head, move_type, covariance, split_rate, rng)
         return sample_new, proposal_rate, μ
+    end
+end
+
+function get_move_type_tree(jump_rate, hyper_rate, rng)
+    r = rand(rng, Uniform(0, 1))
+    if r < hyper_rate
+        return hyper_move
+    elseif r < jump_rate + hyper_rate
+        up = rand(rng, Uniform(0, 1)) < .5
+        if up
+            return tree_split_move
+        else
+            return tree_merge_move
+        end
+    else
+        return normal_move
     end
 end
 
@@ -176,9 +387,9 @@ function get_move_type(jump_rate, hyper_rate, rng)
         up = rand(rng, Uniform(0, 1)) < .5
         if split_merge
             if up
-                return split_move
+                return tree_split_move
             else
-                return merge_move
+                return tree_merge_move
             end
         else
             if up
@@ -193,38 +404,15 @@ function get_move_type(jump_rate, hyper_rate, rng)
 end
 
 function new_move_stats()
-    return OrderedDict(
-        normal_move => OrderedDict(
-            "proposed" => 0,
-            "accepted" => 0,
-            "zero A moves" => 0
-        ),
-        split_move => OrderedDict(
-            "proposed" => 0,
-            "accepted" => 0,
-            "zero A moves" => 0
-        ),
-        merge_move => OrderedDict(
-            "proposed" => 0,
-            "accepted" => 0,
-            "zero A moves" => 0
-        ),
-        birth_move => OrderedDict(
-            "proposed" => 0,
-            "accepted" => 0,
-            "zero A moves" => 0
-        ),
-        death_move => OrderedDict(
-            "proposed" => 0,
-            "accepted" => 0,
-            "zero A moves" => 0
-        ),
-        hyper_move => OrderedDict(
+    out = OrderedDict()
+    for move in instances(Move)
+        out[move] = OrderedDict(
             "proposed" => 0,
             "accepted" => 0,
             "zero A moves" => 0
         )
-    )
+    end
+    return out
 end
 
 function record_move!(move_stats, move_type, A, accept)
@@ -234,7 +422,8 @@ function record_move!(move_stats, move_type, A, accept)
     move_stats[move_type]["zero A moves"] += zero_A
 end
 
-function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covariance, jump_rate, μ_init, hyper_rate, rng)
+
+function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covariance, jump_rate, μ_init, hyper_rate, split_rate, rng)
     chain = Array{Tuple{Float64,Float64,Float64},1}[]
     head = θ_init
     μ = μ_init
@@ -252,11 +441,14 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
             accepted_recent = 0
         end
         move_type = get_move_type(jump_rate, hyper_rate, rng)
-        sample_new, proposal_ratio, μ_new = proposal(head, μ, move_type, covariance, rng)
+        sample_new, proposal_ratio, μ_new = proposal(head, μ, move_type, covariance, split_rate, rng)
         sample_lg_p = log_prior(sample_new, μ_new)
         # Don't recompute likelihood if it's a hyper_move
         if move_type == hyper_move
             sample_lg_l = current_lg_l
+        elseif (move_type == tree_split_move || move_type == tree_merge_move) && (length(head) == length(sample_new))
+            # if no splits or merges proposed
+            continue
         else
             sample_lg_l = log_likelihood(sample_new, observed_image)
         end
@@ -274,21 +466,29 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
             #         println("done writing")
             #     end
             # end
-            # if move_type == death_move
+            # if move_type != normal_move
             #     println(i)
             #     println("================================")
             #     println("ZERO MOVE!")
             #     println("MOVE TYPE: ", move_type)
             #     println("LOG LIKELIHOOD: ", sample_lg_l)
             #     println("LOG PRIOR: ", sample_lg_p)
+            #     println("max b: ", maximum([source[3] for source in sample_new]))
             #     println("LOG JOINT: ", sample_lg_joint)
-            #     println("CURRENT LOG JOINT: ", current_lg_joint)
+            #     println("CURRENT LOG JOINT: ", current_lg_l + current_lg_p)
             #     println("PROPOSAL RATIO: ", proposal_ratio)
             #     println("================================")
             #     println()
             # end
         # end
         accept = rand(rng, Uniform(0, 1)) < A
+        # if move_type == tree_merge_move
+        #     println("merged: ", length(head) - length(sample_new))
+        #     println("proposal ratio: ", proposal_ratio)
+        # elseif move_type == tree_split_move
+        #     println("split: ", length(sample_new) - length(head))
+        #     println("proposal ratio: ", proposal_ratio)
+        # end
         if accept
             head = sample_new
             μ = μ_new

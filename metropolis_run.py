@@ -84,7 +84,6 @@ p_x, p_y, p_b = posterior[0]/PSF_PIXEL_SIZE, posterior[1]/PSF_PIXEL_SIZE, np.exp
 
 
 last_n_x, last_n_y, last_n_b = p_x[len(p_x)-2*len(gt_x):len(p_x)], p_y[len(p_x)-2*len(gt_x):len(p_x)], p_b[len(p_x)-2*len(gt_x):len(p_x)]
-print("length", len(last_n_x))
 
 plt.hist2d(x=p_x, y=p_y, range=[[-1200, 1200], [-1200, 1200]], bins=128)#, weights=p_b)
 plt.scatter(x=gt_x, y=gt_y, c=gt_b, s=10, edgecolors='black')
