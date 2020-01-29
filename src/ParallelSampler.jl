@@ -1,5 +1,5 @@
 using Distributed
-addprocs()
+addprocs(16)
 
 @everywhere begin
     using Pkg
