@@ -1,8 +1,5 @@
 using Distributions
 
-const N_MIN = 5
-const N_MAX = 30
-
 const NUSTAR_IMAGE_LENGTH = 64
 const PSF_IMAGE_LENGTH = 1300
 const IM_SCALE = 1300^2/64^2
@@ -14,4 +11,4 @@ const XY_MIN, XY_MAX, = -1.1 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE, 1.1 * PSF_
 
 const P_SOURCE_XY = Uniform(XY_MIN, XY_MAX)
 # TODO: Update this later
-const P_SOURCE_B = Uniform(exp(3), exp(7))
+const P_SOURCE_B = Uniform(exp(0), exp(7))
