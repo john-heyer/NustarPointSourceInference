@@ -56,7 +56,7 @@ observed_image = sample_image(mean_image, 1)
 println("WORKERS: ", N_CHAINS)
 
 rngs = [(observed_image, MersenneTwister()) for _ in 1:N_CHAINS]
-@time chains = pmap(do_mcmc, rngs)
+@time chains = pmap(do_mcmc, rngs, on_error=identity)
 println("NUMBER OF CHAINS: ", length(chains))
 posterior, stats = collect(chains)
 
