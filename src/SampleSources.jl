@@ -13,15 +13,7 @@ include("TransformPSF.jl")
 include("RJMCMCSampler.jl")
 
 
-function random_sources(n_sources)
-    sources_x = rand(P_SOURCE_XY, n_sources)
-    sources_y = rand(P_SOURCE_XY, n_sources)
-    sources_b = rand(P_SOURCE_B, n_sources)
-    return [(sources_x[i], sources_y[i], log(sources_b[i])) for i in 1:n_sources]
-end
-
-
-function random_sources(n_sources, brighness_dist)
+function random_sources(n_sources, brighness_dist = P_SOURCE_B)
     sources_x = rand(P_SOURCE_XY, n_sources)
     sources_y = rand(P_SOURCE_XY, n_sources)
     sources_b = rand(brighness_dist, n_sources)
