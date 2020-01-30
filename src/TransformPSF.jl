@@ -67,6 +67,9 @@ function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     out = psf * 1.0/sum(psf) * exp(brightness)
     # println("max out: ")
     # println(maximum(out))
+    if minimum(out) < 0.0
+        println("non positive value: ", minimum(out), brightness)
+    end
     return out
 end
 
@@ -78,10 +81,8 @@ end
 
 function compose_mean_image(sources)
     return sum(
-        [
-            apply_psf_transformation(source[1], source[2], source[3])
+        apply_psf_transformation(source[1], source[2], source[3])
                 for source in sources
-        ]
     )
 end
 

@@ -37,12 +37,10 @@ end
 
 function log_prior(θ, μ)
     return sum(
-        [
-            log(pdf(P_SOURCE_XY, source[1])) +
-            log(pdf(P_SOURCE_XY, source[2])) +
-            log(pdf(P_SOURCE_B, exp(source[3])))
-            for source in θ
-        ]
+        log(pdf(P_SOURCE_XY, source[1])) +
+        log(pdf(P_SOURCE_XY, source[2])) +
+        log(pdf(P_SOURCE_B, exp(source[3])))
+        for source in θ
     ) + log(P(μ)) + poisson_log_prob(μ, length(θ))  # P(μ) + P(N|μ)
 end
 
@@ -51,9 +49,8 @@ function log_likelihood(θ, observed_image)
     model_rate_image = compose_mean_image(θ)
     # println("max rate count: ", maximum(model_rate_image))
     lg_likelihood = sum(
-        [poisson_log_prob(model_rate_image[i], observed_image[i])
-            for i in 1:length(observed_image)
-        ]
+        poisson_log_prob(model_rate_image[i], observed_image[i])
+        for i in 1:length(observed_image)
     )
     return lg_likelihood
 end
@@ -66,7 +63,7 @@ function construct_tree(head)
             root.source = sources[1]
         else
             if root.split_x
-                center_of_bx = sum([source[1]*exp(source[3]) for source in sources])/sum([exp(source[3]) for source in sources])
+                center_of_bx = sum(source[1]*exp(source[3]) for source in sources)/sum(exp(source[3]) for source in sources)
                 above = WindowTree(center_of_bx, root.x_max, root.y_min, root.y_max, false, !root.split_x, nothing, nothing, nothing)
                 below = WindowTree(root.x_min, center_of_bx, root.y_min, root.y_max, false, !root.split_x, nothing, nothing, nothing)
                 root.above = above
@@ -76,7 +73,7 @@ function construct_tree(head)
                 build_tree!(above, sources_above)
                 build_tree!(below, sources_below)
             else
-                center_of_by = sum([source[2]*exp(source[3]) for source in sources])/sum([exp(source[3]) for source in sources])
+                center_of_by = sum(source[2]*exp(source[3]) for source in sources)/sum(exp(source[3]) for source in sources)
                 above = WindowTree(root.x_min, root.x_max, center_of_by, root.y_max, false, !root.split_x, nothing, nothing, nothing)
                 below = WindowTree(root.x_min, root.x_max, root.y_min, center_of_by, false, !root.split_x, nothing, nothing, nothing)
                 root.above = above
@@ -263,7 +260,7 @@ end
 
 function distance_distribution(head)
     distances = [(i, j, 1.0/distance(head, i, j)) for i in 1:length(head) for j in i+1:length(head)]
-    s = sum([d[3] for d in distances])
+    s = sum(d[3] for d in distances)
     return [(d[1], d[2], 1.0/s * d[3]) for d in distances]
 end
 

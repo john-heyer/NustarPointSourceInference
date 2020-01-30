@@ -1,4 +1,6 @@
-include("SampleSources.jl")
+using Revise
+
+includet("SampleSources.jl")
 
 sources_truth = random_sources(N_SOURCES_TRUTH, TRUTH_DIST_B)
 println("SAMPLES: ", SAMPLES)
