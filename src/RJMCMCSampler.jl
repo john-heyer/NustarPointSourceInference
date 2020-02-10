@@ -135,29 +135,6 @@ function tree_split(head, split_rate, rng)
                 push!(to_remove, source)
                 p_split *= pdf(dist_x, qx) * pdf(dist_y, qy) * pdf(source_2_dist, source_2_x) * 1/2
                 det_J *= abs(b / (qx - source[1]))
-                splt += 1
-                # println("split coordinate check: ")
-                # println("source split: ")
-                # println(source[1])
-                # println(source[2])
-                # println(exp(source[3]))
-                # println("source new 1: ")
-                # println(qx)
-                # println(qy)
-                # println(b_1)
-                # println("source new 2: ")
-                # println(source_2_x)
-                # println(source_2_y)
-                # println(b_2)
-                # println("bounds: ")
-                # println(tree.x_min)
-                # println(tree.x_max)
-                # println(tree.y_min)
-                # println(tree.y_max)
-                # println("x2 bounds: ")
-                # println(source_2_dist.a)
-                # println(source_2_dist.b)
-                # println()
             else
                 split(tree.above)
                 split(tree.below)
@@ -384,9 +361,9 @@ function get_move_type(jump_rate, hyper_rate, rng)
         up = rand(rng, Uniform(0, 1)) < .5
         if split_merge
             if up
-                return tree_split_move
+                return split_move
             else
-                return tree_merge_move
+                return merge_move
             end
         else
             if up
@@ -406,7 +383,8 @@ function new_move_stats()
         out[move] = OrderedDict(
             "proposed" => 0,
             "accepted" => 0,
-            "zero A moves" => 0
+            "zero A moves" => 0,
+            "inf A moves" => 0
         )
     end
     return out
@@ -414,9 +392,11 @@ end
 
 function record_move!(move_stats, move_type, A, accept)
     zero_A = (A == 0)
+    inf_A = (A == Inf)
     move_stats[move_type]["proposed"] += 1
     move_stats[move_type]["accepted"] += accept
     move_stats[move_type]["zero A moves"] += zero_A
+    move_stats[move_type]["inf A moves"] += inf_A
 end
 
 
