@@ -11,4 +11,4 @@ const XY_MIN, XY_MAX, = -1.1 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE, 1.1 * PSF_
 
 const P_SOURCE_XY = Uniform(XY_MIN, XY_MAX)
 # TODO: Update this later
-const P_SOURCE_B = Uniform(exp(0), exp(7))
+const P_SOURCE_B = Uniform(exp(4), exp(7))
