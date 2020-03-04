@@ -277,7 +277,7 @@ function birth(head, rng)
     source = (rand(rng, P_SOURCE_XY), rand(rng, P_SOURCE_XY), log(rand(rng, P_SOURCE_B)))
     sample_new = vcat([s for s in head], [source])
     p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) * pdf(P_SOURCE_B, exp(source[3]))
-    return sample_new, 1.0/length(sample_new) * 1.0/p_source
+    return sample_new, 1.0/length(sample_new) * 1.0/p_source * length(sample_new)
 end
 
 function death(head, rng)
@@ -285,7 +285,7 @@ function death(head, rng)
     source = head[point_index]
     sample_new = [head[i] for i in 1:length(head) if i != point_index]
     p_source = pdf(P_SOURCE_XY, source[1]) * pdf(P_SOURCE_XY, source[2]) * pdf(P_SOURCE_B, exp(source[3]))
-    return sample_new, length(head) * p_source
+    return sample_new, length(head) * p_source * 1.0/length(head)
 end
 
 
@@ -361,9 +361,9 @@ function get_move_type(jump_rate, hyper_rate, rng)
         up = rand(rng, Uniform(0, 1)) < .5
         if split_merge
             if up
-                return split_move
+                return tree_split_move
             else
-                return merge_move
+                return tree_merge_move
             end
         else
             if up
