@@ -5,6 +5,8 @@ from matplotlib.patches import Rectangle
 import sys
 import os
 import argparse
+import time
+import random
 
 parser = argparse.ArgumentParser(description='Visualize sampler results')
 parser.add_argument('-l', '--last', action='store_true',
@@ -49,8 +51,15 @@ for stat in stats:
 
 for move in move_stats:
 	print(move)
+	proposed = 0
 	for move_stat in move_stats[move]:
 		print("\t", move_stat, ":", move_stats[move][move_stat])
+		if move_stat == "proposed":
+			proposed = move_stats[move][move_stat]
+		elif move_stat == "accepted":
+			if proposed != 0:
+				print("\t", "acceptance rate", ":", move_stats[move][move_stat]/proposed)
+
 print("============================\n")
 
 if init is not False:
@@ -76,16 +85,28 @@ print(posterior.shape)
 # gt = [(ground_truth[0][i], ground_truth[1][i], ground_truth[2][i]) for i in range(len(ground_truth[0]))]
 # print(gt)
 
+def percent_outside(sources_x, sources_y):
+	sources_x = sources_x.reshape(-1, 1)
+	sources_y = sources_y.reshape(-1, 1)
+	sources = np.hstack((sources_x, sources_y))
+	outside = np.where((np.abs(sources[:,0]) > window_max) | (np.abs(sources[:,1]) > window_max))
+	return outside[0].shape[0] / len(sources_x)
+
+
 gt_x, gt_y, gt_b = ground_truth[0]/PSF_PIXEL_SIZE, ground_truth[1]/PSF_PIXEL_SIZE, np.exp(ground_truth[2])
+
 if init is not False:
 	i_x, i_y, i_b = init[0]/PSF_PIXEL_SIZE, init[1]/PSF_PIXEL_SIZE, np.exp(init[2])
 
 p_x, p_y, p_b = posterior[0]/PSF_PIXEL_SIZE, posterior[1]/PSF_PIXEL_SIZE, np.exp(posterior[2])
 
+print("expected percent outside: .174")
+print("percent outside gt:", percent_outside(gt_x, gt_y))
+print("percent outside post:", percent_outside(p_x, p_y))
 
 last_n_x, last_n_y, last_n_b = p_x[len(p_x)-2*len(gt_x):len(p_x)], p_y[len(p_x)-2*len(gt_x):len(p_x)], p_b[len(p_x)-2*len(gt_x):len(p_x)]
 
-plt.hist2d(x=p_x, y=p_y, range=[[-1200, 1200], [-1200, 1200]], bins=128)#, weights=p_b)
+plt.hist2d(x=p_x, y=p_y, range=[[-1000, 1000], [-1000, 1000]], bins=128)#, weights=p_b)
 plt.scatter(x=gt_x, y=gt_y, c=gt_b, s=10, edgecolors='black')
 if last:
 	plt.scatter(x=last_n_x, y=last_n_y, c='r', marker='+')
@@ -107,7 +128,21 @@ count = [tup[1] for tup in source_count_tuples]
 plt.bar(n_sources, count, color='g', edgecolor='k')
 plt.title("N Posterior")
 plt.axvline(len(gt_x), color='k', linestyle='dashed', linewidth=1)
-print(len(gt_x))
+plt.show()
+
+
+
+gt_b_sort = np.sort(gt_b)
+pr_b = np.linspace(1, 0, np.size(gt_b_sort))
+plt.scatter(x=gt_b_sort, y=pr_b)
+plt.title("CDF B GT")
+plt.show()
+
+posterior_b_sample = np.array(random.sample(list(p_b), 2000))
+posterior_b_sort = np.sort(posterior_b_sample)
+pr_b = np.linspace(1, 0, np.size(posterior_b_sort))
+plt.scatter(x=posterior_b_sort, y=pr_b)
+plt.title("CDF B POSTERIOR")
 plt.show()
 
 if a_rates:

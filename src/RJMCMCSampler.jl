@@ -320,8 +320,8 @@ function normal_proposal(head, covariance, rng)::Tuple{Array{Tuple{Float64,Float
     return sample_new, 1.0
 end
 
-function hyper_proposal(μ, rng)
-    return μ + rand(rng, Normal(0.0, 2))
+function hyper_proposal(μ, head, rng)
+    return μ + rand(rng, Normal(0.0, .05 * length(head)))
 end
 
 function proposal(head, μ, move_type, covariance, split_rate, rng)
@@ -329,7 +329,7 @@ function proposal(head, μ, move_type, covariance, split_rate, rng)
         sample_new, proposal_rate = normal_proposal(head, covariance, rng)
         return sample_new, proposal_rate, μ
     elseif move_type == hyper_move
-        return head, 1.0, hyper_proposal(μ, rng)
+        return head, 1.0, hyper_proposal(μ, head, rng)
     else
         sample_new, proposal_rate = jump_proposal(head, move_type, covariance, split_rate, rng)
         return sample_new, proposal_rate, μ
