@@ -214,10 +214,12 @@ function tree_merge(head, split_rate, rng)
     return sample_new, p_split * 1.0/det_J
 end
 
-function split(head, covariance, rng)
+function split(head, proposal_width, rng)
     point_index = rand(rng, 1:length(head))
     α = rand(rng, Uniform(0,1))
-    q_dist = MvNormal(covariance[1:2, 1:2])
+    var_xy= (10 * proposal_width.xy * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)))^2
+    covariance = [var_xy 0.0; 0.0 var_xy]
+    q_dist = MvNormal(covariance)
     q = rand(rng, q_dist)
     source = head[point_index]
     source_1 = (source[1] + q[1]/2, source[2] + q[2]/2, source[3] + log(α))
@@ -247,7 +249,7 @@ function cumulative_distribution(dist)
 end
 
 
-function merge(head, covariance, rng)
+function merge(head, proposal_width, rng)
     distance_dist = distance_distribution(head)
     cumulative_distance_dist = cumulative_distribution(distance_dist)
     v = rand(rng, Uniform(0,1))
@@ -260,7 +262,9 @@ function merge(head, covariance, rng)
             break
         end
     end
-    q_dist = MvNormal(covariance[1:2, 1:2])
+    var_xy, var_b = (proposal_width.xy * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)-1))^2
+    covariance = [var_xy 0.0; 0.0 var_xy]
+    q_dist = MvNormal(covariance)
     q = [head[point_index][1] - head[point_merge_index][1], head[point_index][2] - head[point_merge_index][2]]
     # α = exp(head[point_index][3])/(exp(head[point_index][3]) + exp(head[point_merge_index][3]))
     x_merged = (head[point_index][1] + head[point_merge_index][1])/2
@@ -289,15 +293,15 @@ function death(head, rng)
 end
 
 
-function jump_proposal(head, move_type, covariance, split_rate, rng)
+function jump_proposal(head, move_type, proposal_width, split_rate, rng)
     if move_type == birth_move
         sample_new, proposal_ratio = birth(head, rng)
     elseif move_type == death_move
         sample_new, proposal_ratio = death(head, rng)
     elseif move_type == split_move
-        sample_new, proposal_ratio = split(head, covariance, rng)
+        sample_new, proposal_ratio = split(head, proposal_width, rng)
     elseif move_type == merge_move
-        sample_new, proposal_ratio = merge(head, covariance, rng)
+        sample_new, proposal_ratio = merge(head, proposal_width, rng)
     elseif move_type == tree_split_move
         sample_new, proposal_ratio = tree_split(head, split_rate, rng)
     elseif move_type == tree_merge_move
@@ -314,8 +318,10 @@ function source_new(source, covariance, rng)::Tuple{Float64, Float64, Float64}
 end
 
 
-function normal_proposal(head, covariance, rng)::Tuple{Array{Tuple{Float64,Float64,Float64},1}, Float64}
+function normal_proposal(head, proposal_width, rng)::Tuple{Array{Tuple{Float64,Float64,Float64},1}, Float64}
     n_sources = length(head)
+    var_xy, var_b = (proposal_width.xy * PSF_PIXEL_SIZE * 1.0/sqrt(n_sources))^2, (proposal_width.b * 1.0/sqrt(n_sources))^2
+    covariance = [var_xy 0.0 0.0; 0.0 var_xy 0.0; 0.0 0.0 var_b]
     sample_new = [source_new(source, covariance, rng) for source in head]
     return sample_new, 1.0
 end
@@ -324,14 +330,14 @@ function hyper_proposal(μ, head, rng)
     return μ + rand(rng, Normal(0.0, .05 * length(head)))
 end
 
-function proposal(head, μ, move_type, covariance, split_rate, rng)
+function proposal(head, μ, move_type, proposal_width, split_rate, rng)
     if move_type == normal_move
-        sample_new, proposal_rate = normal_proposal(head, covariance, rng)
+        sample_new, proposal_rate = normal_proposal(head, proposal_width, rng)
         return sample_new, proposal_rate, μ
     elseif move_type == hyper_move
         return head, 1.0, hyper_proposal(μ, head, rng)
     else
-        sample_new, proposal_rate = jump_proposal(head, move_type, covariance, split_rate, rng)
+        sample_new, proposal_rate = jump_proposal(head, move_type, proposal_width, split_rate, rng)
         return sample_new, proposal_rate, μ
     end
 end
@@ -400,7 +406,7 @@ function record_move!(move_stats, move_type, A, accept)
 end
 
 
-function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covariance, jump_rate, μ_init, hyper_rate, split_rate, rng)
+function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, proposal_width, jump_rate, μ_init, hyper_rate, split_rate, rng)
     chain = Array{Tuple{Float64,Float64,Float64},1}[]
     head = θ_init
     μ = μ_init
@@ -418,7 +424,7 @@ function nustar_rjmcmc(observed_image, θ_init, samples, burn_in_steps, covarian
             accepted_recent = 0
         end
         move_type = get_move_type(jump_rate, hyper_rate, rng)
-        sample_new, proposal_ratio, μ_new = proposal(head, μ, move_type, covariance, split_rate, rng)
+        sample_new, proposal_ratio, μ_new = proposal(head, μ, move_type, proposal_width, split_rate, rng)
         sample_lg_p = log_prior(sample_new, μ_new)
         # Don't recompute likelihood if it's a hyper_move
         if move_type == hyper_move
