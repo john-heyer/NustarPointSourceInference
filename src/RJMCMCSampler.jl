@@ -217,7 +217,7 @@ end
 function split(head, proposal_width, rng)
     point_index = rand(rng, 1:length(head))
     α = rand(rng, Uniform(0,1))
-    var_xy= (SPLIT_PROPOSAL_WIDTH * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)))^2
+    var_xy = (SPLIT_PROPOSAL_WIDTH * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)))^2
     covariance = [var_xy 0.0; 0.0 var_xy]
     q_dist = MvNormal(covariance)
     q = rand(rng, q_dist)
@@ -262,7 +262,7 @@ function merge(head, proposal_width, rng)
             break
         end
     end
-    var_xy, var_b = (SPLIT_PROPOSAL_WIDTH * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)-1))^2
+    var_xy = (SPLIT_PROPOSAL_WIDTH * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)-1))^2
     covariance = [var_xy 0.0; 0.0 var_xy]
     q_dist = MvNormal(covariance)
     q = [head[point_index][1] - head[point_merge_index][1], head[point_index][2] - head[point_merge_index][2]]
@@ -327,7 +327,7 @@ function normal_proposal(head, proposal_width, rng)::Tuple{Array{Tuple{Float64,F
 end
 
 function hyper_proposal(μ, head, rng)
-    return μ + rand(rng, Normal(0.0, .05 * length(head)))
+    return μ + rand(rng, Normal(0.0, .1 * length(head)))
 end
 
 function proposal(head, μ, move_type, proposal_width, split_rate, rng)
