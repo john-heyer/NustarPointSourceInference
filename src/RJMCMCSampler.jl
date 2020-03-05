@@ -217,7 +217,7 @@ end
 function split(head, proposal_width, rng)
     point_index = rand(rng, 1:length(head))
     α = rand(rng, Uniform(0,1))
-    var_xy= (10 * proposal_width.xy * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)))^2
+    var_xy= (SPLIT_PROPOSAL_WIDTH * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)))^2
     covariance = [var_xy 0.0; 0.0 var_xy]
     q_dist = MvNormal(covariance)
     q = rand(rng, q_dist)
@@ -262,7 +262,7 @@ function merge(head, proposal_width, rng)
             break
         end
     end
-    var_xy, var_b = (proposal_width.xy * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)-1))^2
+    var_xy, var_b = (SPLIT_PROPOSAL_WIDTH * PSF_PIXEL_SIZE * 1.0/sqrt(length(head)-1))^2
     covariance = [var_xy 0.0; 0.0 var_xy]
     q_dist = MvNormal(covariance)
     q = [head[point_index][1] - head[point_merge_index][1], head[point_index][2] - head[point_merge_index][2]]
@@ -367,9 +367,9 @@ function get_move_type(jump_rate, hyper_rate, rng)
         up = rand(rng, Uniform(0, 1)) < .5
         if split_merge
             if up
-                return tree_split_move
+                return split_move
             else
-                return tree_merge_move
+                return merge_move
             end
         else
             if up
