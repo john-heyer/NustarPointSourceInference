@@ -1,5 +1,5 @@
 using Distributed
-addprocs()
+addprocs(8)
 
 @everywhere begin
     using Pkg
@@ -68,9 +68,8 @@ observed_image = sample_image(mean_image, 1)
 
 println("WORKERS: ", N_CHAINS)
 
-rngs = [(observed_image, MersenneTwister()) for _ in 1:N_CHAINS]
-@time chains = pmap(do_mcmc, rngs, on_error=identity)
-
+rngs = [(observed_image, MersenneTwister(), sources_truth) for _ in 1:N_CHAINS]
+@time chains = pmap(do_mcmc, rngs)#, on_error=identity)
 println("finished sampling")
 
 if CHECK_CONVERGENCE
