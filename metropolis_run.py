@@ -94,6 +94,7 @@ def percent_outside(sources_x, sources_y):
 
 
 gt_x, gt_y, gt_b = ground_truth[0]/PSF_PIXEL_SIZE, ground_truth[1]/PSF_PIXEL_SIZE, np.exp(ground_truth[2])
+# print("percent under 50:", gt_b[gt_b<54].shape[0]/200)
 
 if init is not False:
 	i_x, i_y, i_b = init[0]/PSF_PIXEL_SIZE, init[1]/PSF_PIXEL_SIZE, np.exp(init[2])

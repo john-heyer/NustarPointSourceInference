@@ -1,8 +1,8 @@
 using TransformVariables, LogDensityProblems, DynamicHMC,
     DynamicHMC.Diagnostics, Parameters, Statistics, Random,
-    Distributions
+    Distributions, Plots
 
-const N_SOURCES_TRUTH = 3
+const N_SOURCES_TRUTH = 10
 const NUSTAR_IMAGE_LENGTH = 64
 const PSF_IMAGE_LENGTH = 1300
 
@@ -13,7 +13,7 @@ const PSF_PIXEL_SIZE = 2.9793119397393605e-06
 const XY_MIN, XY_MAX, = -1.1 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE, 1.1 * PSF_IMAGE_LENGTH/2.0 * PSF_PIXEL_SIZE
 
 const P_SOURCE_XY = Uniform(XY_MIN, XY_MAX)
-const P_SOURCE_B = Uniform(exp(0), exp(7))
+const P_SOURCE_B = Uniform(exp(4), exp(7))
 
 struct NustarProblem
     observed_image::Array{Int64,2}
@@ -29,7 +29,7 @@ function apply_psf_transformation(x, y, b)
             ((psf_half_length - i) - y_loc_pixels)^2 +
             ((psf_half_length - j) - x_loc_pixels)^2
         )
-        return 1.0/(1 + 0.1 * distance^4)
+        return 1.0/(1 + .1distance)
     end
     psf = map(power_law, ((i, j) for i in 1:NUSTAR_IMAGE_LENGTH, j in 1:NUSTAR_IMAGE_LENGTH))
     return psf * 1.0/sum(psf) * exp(b) # normalize and scale by b
@@ -85,8 +85,10 @@ sources_truth = random_sources(N_SOURCES_TRUTH)
 mean_image =  compose_mean_image(sources_truth)
 observed_image = [rand(Poisson(λ)) for λ in mean_image]
 
+display(heatmap(mean_image))
+
 θ_init = random_sources(N_SOURCES_TRUTH)
-q_init = vcat([[t[1], t[2], t[3]] for t in θ_init]...)
+q_init = vcat([[t[1], t[2], t[3]] for t in sources_truth]...)
 q_transformed = (h = q_init,)
 
 p = NustarProblem(observed_image)
@@ -97,4 +99,13 @@ Pr = TransformedLogDensity(t, p)
 
 grad_P = ADgradient(:ForwardDiff, Pr)
 
-results = mcmc_with_warmup(Random.GLOBAL_RNG, grad_P, 1000; initialization = (q = q_init, κ = GaussianKineticEnergy(9, 2.0)))
+results = mcmc_with_warmup(Random.GLOBAL_RNG, grad_P, 1000; initialization = (q = q_init,))
+# results = mcmc_with_warmup(
+#     Random.GLOBAL_RNG, grad_P, 1000;
+#     initialization = (ϵ = 0.1, q = q_init),
+#     warmup_stages = default_warmup_stages(
+#         ; local_optimization = nothing,
+#         stepsize_search = nothing
+#     )
+# )
+summarize_tree_statistics(results.tree_statistics)
