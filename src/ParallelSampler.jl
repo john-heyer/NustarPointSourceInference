@@ -9,6 +9,19 @@ addprocs()
 end
 
 
+function write_post_maps_sample(results, N)
+    """
+    Write numpy array of size (N, M, 64, 64)
+    where M is the number of chains.
+    """
+    M = length(results)
+    out = [compose_mean_image(results[m][1][end-n]) for n in 1:N, m in 1:M]
+    println("shape out: ", shape(out))
+    println("shape expected: ", (10, 8, 64, 64))
+    npzwrite("post_maps.npz", out)
+end
+
+
 function collect(results)
     combined_chain = vcat([result[1] for result in results]...)
     stats_dicts = [result[2] for result in results]
@@ -57,9 +70,14 @@ println("WORKERS: ", N_CHAINS)
 
 rngs = [(observed_image, MersenneTwister()) for _ in 1:N_CHAINS]
 @time chains = pmap(do_mcmc, rngs, on_error=identity)
-println("NUMBER OF CHAINS: ", length(chains))
-posterior, stats = collect(chains)
 
 println("finished sampling")
+
+if CHECK_CONVERGENCE
+    println("writing recent maps")
+    write_post_maps_sample(chains, N_KEEP)
+end
+
+posterior, stats = collect(chains)
 write_sample_results(sources_truth, posterior, stats)
 println("DONE")
