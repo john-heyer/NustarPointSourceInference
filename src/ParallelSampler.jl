@@ -9,14 +9,16 @@ addprocs(8)
 end
 
 
-function write_post_maps_sample(results, N)
+function write_post_maps_sample(results, N_sample)
     """
     Write numpy array of size (N, M, 64, 64)
     where M is the number of chains.
     """
     M = length(results)
-    out = [compose_mean_image(results[m][1][end-n]) for n in 1:N, m in 1:M]
-    out = [out[n,m][i,j] for n in 1:N, m in 1:M, i in 1:32, j in 1:32]
+    N = length(results[1][1])
+    sample_period = Int(floor(N/N_sample))
+    out = [compose_mean_image(results[m][1][end-(sample_period * (n-1))]) for n in 1:N_sample, m in 1:M]
+    out = [out[n,m][i,j] for n in 1:N_sample, m in 1:M, i in 1:32, j in 1:32]
     println("shape out: ", size(out))
     npzwrite("post_maps" * string(BURN_IN_STEPS) * ".npz", out)
 end
