@@ -18,8 +18,7 @@ function write_post_maps_sample(results, N)
     out = [compose_mean_image(results[m][1][end-n]) for n in 1:N, m in 1:M]
     out = [out[n,m][i,j] for n in 1:N, m in 1:M, i in 1:64, j in 1:64]
     println("shape out: ", size(out))
-    println("shape expected: ", (10, 8, 64, 64))
-    npzwrite("post_maps.npz", out)
+    npzwrite("post_maps" * string(BURN_IN_STEPS) * ".npz", out)
 end
 
 
@@ -69,7 +68,7 @@ observed_image = sample_image(mean_image, 1)
 
 println("WORKERS: ", N_CHAINS)
 
-rngs = [(observed_image, MersenneTwister(), sources_truth) for _ in 1:N_CHAINS]
+rngs = [(observed_image, MersenneTwister()) for _ in 1:N_CHAINS]
 @time chains = pmap(do_mcmc, rngs)#, on_error=identity)
 println("finished sampling")
 

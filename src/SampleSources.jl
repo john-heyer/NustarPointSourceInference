@@ -22,10 +22,10 @@ end
 
 
 function do_mcmc(img_and_rng)
-    observed_image, rng, sinit = img_and_rng
+    observed_image, rng = img_and_rng
     μ_init = exp(rand(Uniform(log(N_MIN), log(N_MAX))))
     n_init = rand(Poisson(μ_init))
-    θ_init =  sinit#random_sources(n_init)
+    θ_init =  random_sources(n_init)
     posterior, stats = nustar_rjmcmc(
         observed_image, θ_init, Int(floor(SAMPLES/N_CHAINS)), BURN_IN_STEPS, PROPOSAL_WIDTH, JUMP_RATE, μ_init, HYPER_RATE, SPLIT_RATE, rng)
     return posterior, stats
@@ -49,8 +49,8 @@ function write_sample_results(sources_truth, posterior, stats)
     posterior_sources = vcat(posterior...)
     posterior_array = [posterior_sources[i][j] for j in 1:length(posterior_sources[1]), i in 1:length(posterior_sources)]
     posterior_data =  Dict("gt" => ground_truth, "posterior" => posterior_array)
-    npzwrite("posterior_data2.npz", posterior_data)
-    open("acceptance_stats2.json", "w") do f
+    npzwrite("posterior_data.npz", posterior_data)
+    open("acceptance_stats.json", "w") do f
         JSON.print(f, stats)
     end
 end
