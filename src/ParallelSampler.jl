@@ -16,7 +16,8 @@ function write_post_maps_sample(results, N)
     """
     M = length(results)
     out = [compose_mean_image(results[m][1][end-n]) for n in 1:N, m in 1:M]
-    println("shape out: ", shape(out))
+    out = [out[n,m][i,j] for n in 1:N, m in 1:M, i in 1:64, j in 1:64]
+    println("shape out: ", size(out))
     println("shape expected: ", (10, 8, 64, 64))
     npzwrite("post_maps.npz", out)
 end
