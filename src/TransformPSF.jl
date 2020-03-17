@@ -13,7 +13,7 @@ psf = npzread("psf_9.npy")
 const PSF = [max(0, i) for i in psf]
 
 function anneal!(psf, x_loc_pixels, y_loc_pixels)
-    psf_half_length = NUSTAR_IMAGE_LENGTH/2
+    psf_half_length = NUSTAR_IMAGE_LENGTH/2/2
     # compute each pixels distance from x, y in pixels. x_loc_pixels, y_loc_pixels
     # measured in pixels from center while j, i is pixels from top left
     for j in 1:size(psf, 2)
@@ -22,14 +22,32 @@ function anneal!(psf, x_loc_pixels, y_loc_pixels)
                 ((psf_half_length - i) - y_loc_pixels)^2 +
                 ((psf_half_length - j) - x_loc_pixels)^2
             )
-            psf[i, j] += 1/(1+.1d^4)
+            psf[i, j] += 1/(1 + d^2)
         end
     end
 end
 
+
 function psf_by_r(r)
     return PSF
 end
+
+
+function fn_apply_psf_transformation(x, y, b)
+    x_loc_pixels, y_loc_pixels = -x/(NUSTAR_PIXEL_SIZE*2), -y/(NUSTAR_PIXEL_SIZE*2)
+    psf_half_length = NUSTAR_IMAGE_LENGTH/2/2
+    function power_law(row_col)
+        i, j = row_col
+        distance = sqrt(
+            ((psf_half_length - i) - y_loc_pixels)^2 +
+            ((psf_half_length - j) - x_loc_pixels)^2
+        )
+        return 1.0/(1 + distance^2)
+    end
+    psf = map(power_law, ((i, j) for i in 1:NUSTAR_IMAGE_LENGTH/2, j in 1:NUSTAR_IMAGE_LENGTH/2))
+    return psf * 1.0/sum(psf) * exp(b) # normalize and scale by b
+end
+
 
 function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     # r, θ = cartesian_to_polar(x, y)
@@ -57,19 +75,19 @@ function apply_psf_transformation(x, y, brightness, new_shape=(64,64))
     # psf = warp(psf, trans, indices_spatial(psf), 0.0)
 
     # Add to image according to power law so that image is differentiable everywhere
-    psf = zeros(64, 64)
-    anneal!(psf, -x/NUSTAR_PIXEL_SIZE, -y/NUSTAR_PIXEL_SIZE)
+    psf = zeros(32, 32)
+    anneal!(psf, -x/(NUSTAR_PIXEL_SIZE*2), -y/(NUSTAR_PIXEL_SIZE*2))
     # Resize by averaging and interpolating
     # psf = imresize(psf, new_shape)
     # println(1/sum(psf))
     # Normalize resized image: because we have averaged the pixels in downscaling,
     # we no longer have a true probability distribution, should rescale by (~1300^2/64^2)
     out = psf * 1.0/sum(psf) * exp(brightness)
-    # println("max out: ")
-    # println(maximum(out))
     if minimum(out) < 0.0
         println("non positive value: ", minimum(out), brightness)
     end
+    # println(minimum(out))
+    # println(maximum(out))
     return out
 end
 
@@ -91,7 +109,7 @@ function sample_image(mean_image, t)
     return [rand(Poisson(convert(Float64, t*λ))) for λ in mean_image]
 end
 
-# tpsf = apply_psf_transformation(0 * NUSTAR_PIXEL_SIZE, 0* NUSTAR_PIXEL_SIZE, 0)
+# @time tpsf = apply_psf_transformation(8 * NUSTAR_PIXEL_SIZE*2, 8* NUSTAR_PIXEL_SIZE*2, 0)
 # plt_n = heatmap(tpsf)
 # display(plt_n)
 # # TODO: Fix resizing
